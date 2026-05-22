@@ -1,0 +1,28 @@
+[
+    {
+        "user_input":"What is the penalty for driving without a helmet under the Motor Vehicles Act?",
+        "retrieved_contexts":[
+            "Section 129 of the Motor Vehicles Act, 1988 mandates that every person riding a motorcycle in public must wear protective headgear conforming to bureau standards.",
+            "Section 194D of the Motor Vehicles Act prescribes the penalty of \u20b91,000 and suspension of driving license for three months for driving without a helmet."
+        ],
+        "response":"Under Section 129 of the Motor Vehicles Act, driving without a helmet is a violation. It carries a fine of up to \u20b91,000 and license suspension for 3 months.",
+        "reference":"Driving a motorcycle without a helmet violates Section 129 of the Motor Vehicles Act, carrying a fine of \u20b91,000 and a 3-month license suspension.",
+        "faithfulness":0.6666666667,
+        "answer_relevancy":1.0,
+        "context_precision":1.0,
+        "context_recall":1.0
+    },
+    {
+        "user_input":"Can a retail merchant legally sell a product above the Maximum Retail Price (MRP)?",
+        "retrieved_contexts":[
+            "The Legal Metrology Act, 2009 regulates trade in weights, measures, and pre-packaged goods.",
+            "Section 36 of the Legal Metrology Act, 2009 prescribes fines and penalties for selling pre-packaged goods at prices exceeding the Maximum Retail Price (MRP)."
+        ],
+        "response":"No, it is illegal for shopkeepers to charge more than the Maximum Retail Price (MRP) printed on pre-packaged commodities under the Legal Metrology Act.",
+        "reference":"Charging above the printed Maximum Retail Price (MRP) is illegal and punishable under Section 36 of the Legal Metrology Act, 2009.",
+        "faithfulness":0.75,
+        "answer_relevancy":0.7899573714,
+        "context_precision":1.0,
+        "context_recall":1.0
+    }
+]

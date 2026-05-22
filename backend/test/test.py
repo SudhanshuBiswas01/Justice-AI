@@ -3,11 +3,15 @@ import sys
 import pandas as pd
 from datasets import Dataset
 from langchain_groq import ChatGroq
-from langchain_community.embeddings import OpenAIEmbeddings
+from langchain_community.embeddings import HuggingFaceEmbeddings
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Ragas evaluation modules
 from ragas import evaluate
-from ragas.metrics.collections import (
+from ragas.metrics import (
     faithfulness,
     answer_relevancy,
     context_precision,
@@ -25,27 +29,26 @@ except ImportError:
 
 def create_evaluation_dataset() -> Dataset:
     """
-    Simulates the output of a RAG pipeline. 
-    In a real scenario, you would load this from your pipeline's logs or a CSV.
+    Simulates the output of a RAG pipeline for Indian law.
     """
     data = {
         "question": [
-            "What is the main advantage of using LangGraph?",
-            "How does a vector database work?"
+            "What is the penalty for driving without a helmet under the Motor Vehicles Act?",
+            "Can a retail merchant legally sell a product above the Maximum Retail Price (MRP)?"
         ],
         "answer": [
-            "LangGraph allows you to build stateful, multi-actor applications with LLMs.",
-            "It stores data as mathematical vectors, enabling similarity search."
+            "Under Section 129 of the Motor Vehicles Act, driving without a helmet is a violation. It carries a fine of up to ₹1,000 and license suspension for 3 months.",
+            "No, it is illegal for shopkeepers to charge more than the Maximum Retail Price (MRP) printed on pre-packaged commodities under the Legal Metrology Act."
         ],
         "contexts": [
-            ["LangGraph is an extension of LangChain designed for stateful, cyclic workflows.", 
-             "It uses a graph-based state machine for multi-agent orchestration."],
-            ["Vector databases index high-dimensional vectors.", 
-             "They use distance metrics like cosine similarity to find nearest neighbors."]
+            ["Section 129 of the Motor Vehicles Act, 1988 mandates that every person riding a motorcycle in public must wear protective headgear conforming to bureau standards.",
+             "Section 194D of the Motor Vehicles Act prescribes the penalty of ₹1,000 and suspension of driving license for three months for driving without a helmet."],
+            ["The Legal Metrology Act, 2009 regulates trade in weights, measures, and pre-packaged goods.",
+             "Section 36 of the Legal Metrology Act, 2009 prescribes fines and penalties for selling pre-packaged goods at prices exceeding the Maximum Retail Price (MRP)."]
         ],
         "ground_truth": [
-            "LangGraph enables the creation of stateful, multi-agent LLM applications using graph structures.",
-            "A vector database stores high-dimensional embeddings and retrieves them using mathematical similarity metrics."
+            "Driving a motorcycle without a helmet violates Section 129 of the Motor Vehicles Act, carrying a fine of ₹1,000 and a 3-month license suspension.",
+            "Charging above the printed Maximum Retail Price (MRP) is illegal and punishable under Section 36 of the Legal Metrology Act, 2009."
         ]
     }
     
@@ -65,13 +68,14 @@ def run_evaluation(eval_dataset: Dataset = None):
     print("Initializing Groq LLM for evaluation...")
     evaluator_llm = ChatGroq(
         temperature=0, 
-        model_name="llama3-70b-8192", # Use a large reasoning model for judging
+        model_name="llama-3.3-70b-versatile", # Use a large reasoning model for judging
         api_key=os.environ.get("GROQ_API_KEY")
     )
     
     # Initialize embeddings (used for semantic similarity checks in evaluation)
-    evaluator_embeddings = OpenAIEmbeddings(
-        api_key=os.environ.get("OPENAI_API_KEY")
+    # Using a free, local HuggingFace embedding model instead of OpenAI
+    evaluator_embeddings = HuggingFaceEmbeddings(
+        model_name="sentence-transformers/all-MiniLM-L6-v2"
     )
 
     # Define the metrics to score the RAG pipeline
@@ -163,18 +167,15 @@ def create_custom_dataset():
 
 def main_interactive():
     groq_key = os.environ.get("GROQ_API_KEY")
-    openai_key = os.environ.get("OPENAI_API_KEY")
     
     if not groq_key:
         print("WARNING: GROQ_API_KEY environment variable is not set. Evaluations might fail.")
-    if not openai_key:
-        print("WARNING: OPENAI_API_KEY environment variable is not set. Evaluations might fail.")
         
     while True:
         print("\n" + "="*50)
         print("       RAG Evaluation Interactive CLI Menu")
         print("="*50)
-        print("1. Run default mock evaluation (2 LangGraph questions)")
+        print("1. Run default mock evaluation (2 Indian Law questions)")
         print("2. Run full legal evaluation dataset (15 questions)")
         print("3. Run specific category of legal questions (Constitution / Consumer / Hybrid)")
         print("4. Run specific questions selected by number")
@@ -194,7 +195,7 @@ def main_interactive():
         if choice == "1":
             print("\nLoading default mock dataset...")
             eval_dataset = create_evaluation_dataset()
-            dataset_name = "Default Mock Dataset"
+            dataset_name = "Mock Indian Law Dataset"
         elif choice == "2":
             if create_legal_dataset is None:
                 print("\nError: Could not import question.py dataset.")
@@ -237,19 +238,22 @@ def main_interactive():
             results_df = results.to_pandas()
             
             print("\nAggregate Metrics:")
-            for metric_name, score in results.items():
-                print(f"- {metric_name.replace('_', ' ').title()}: {score:.4f}")
-                
-            print("\nDetailed Itemized Scores:")
-            cols_to_print = ['question']
             for m in ['faithfulness', 'answer_relevancy', 'context_precision', 'context_recall']:
                 if m in results_df.columns:
-                    cols_to_print.append(m)
-            print(results_df[cols_to_print])
+                    score = results_df[m].mean()
+                    print(f"- {m.replace('_', ' ').title()}: {score:.4f}")
+                
+            # Detailed scores are no longer printed to the terminal to avoid clutter,
+            # but they are fully available in the exported JSON report below.
+            
+            # Save the full report to a JSON file
+            report_path = "evaluation_report.json"
+            results_df.to_json(report_path, orient="records", indent=4)
+            print(f"\nReport successfully saved to {report_path}")
             
         except Exception as e:
             print(f"\nAn error occurred during evaluation: {e}")
-            print("Please ensure your API keys (GROQ_API_KEY and OPENAI_API_KEY) are valid.")
+            print("Please ensure your GROQ_API_KEY environment variable is set and valid.")
 
 if __name__ == "__main__":
     main_interactive()

@@ -18,6 +18,93 @@ Users can describe their issue in plain language or upload challans, bills, or s
 
 ---
 
+## Getting Started & Setup Guide
+
+This guide will walk you through setting up both the backend API and the frontend application, as well as running the interactive RAG evaluation test suite.
+
+### Prerequisites
+Ensure you have the following installed on your local machine:
+- **Python 3.8+** (for the backend and RAG evaluation)
+- **Node.js 18+** & **npm** (for the Next.js frontend)
+
+---
+
+### 1. Backend Setup (FastAPI)
+
+The backend is built with FastAPI and integrates with the Groq API for LLM reasoning.
+
+1. **Navigate to the backend directory:**
+   ```bash
+   cd backend
+   ```
+
+2. **Create and activate a virtual environment:**
+   - **macOS/Linux:**
+     ```bash
+     python3 -m venv venv
+     source venv/bin/activate
+     ```
+   - **Windows:**
+     ```bash
+     python -m venv venv
+     venv\Scripts\activate
+     ```
+
+3. **Install dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. **Configure Environment Variables:**
+   Create a `.env` file in the `backend/` directory (or edit the existing one) with your API key:
+   ```env
+   GROQ_API_KEY=your_groq_api_key_here
+   ```
+
+5. **Run the FastAPI development server:**
+   ```bash
+   uvicorn main:app --reload
+   ```
+   The backend server will run on [http://localhost:8000](http://localhost:8000).
+
+---
+
+### 2. Frontend Setup (Next.js)
+
+The frontend is a dark-themed interactive legal dashboard built with Next.js 15, React 19, and Tailwind CSS 4.
+
+1. **Navigate to the frontend directory:**
+   ```bash
+   cd frontend
+   ```
+
+2. **Install dependencies:**
+   ```bash
+   npm install
+   ```
+
+3. **Run the Next.js development server:**
+   ```bash
+   npm run dev
+   ```
+   The frontend application will start running on [http://localhost:3000](http://localhost:3000). Open this URL in your browser to interact with Justice AI.
+
+---
+
+### 3. Running RAG Evaluations (Interactive CLI)
+
+The project includes an interactive RAG evaluation test suite in `backend/test/test.py` that utilizes Ragas to score LLM outputs across different legal question categories.
+
+1. **Activate the backend virtual environment** and ensure your keys are configured.
+2. **Navigate to the backend folder and run the test runner:**
+   ```bash
+   cd backend
+   python test/test.py
+   ```
+3. **Select an evaluation option** from the interactive CLI menu.
+
+---
+
 # Layer AI — V1 High-Level Design (HLD)
 
 ## End-to-end flow
@@ -305,20 +392,6 @@ Design principle for V1:
 > **Deterministic + reliable** — predictable pipeline per category.
 
 Agent-based automation is planned for **V2/V3**.
-
----
-
-## Frontend (landing page)
-
-Dark-themed marketing UI lives in `frontend/` (Next.js 16 + React 19 + Tailwind CSS 4).
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) for the Justice AI landing page.
 
 ---
 
