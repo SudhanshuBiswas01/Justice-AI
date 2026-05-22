@@ -1,0 +1,10 @@
+# Dependencies & build
+node_modules/
+.next/
+out/
+
+# Env
+.env*
+
+# Local legal PDFs (large; not for repo)
+*.pdf
