@@ -14,7 +14,7 @@ export function Navbar() {
           </a>
         </div>
         <a
-          href="#categories"
+          href="/chat"
           className="rounded-xl bg-white/5 px-4 py-2 text-xs font-semibold text-zinc-200 ring-1 ring-white/10 transition-all hover:bg-white/10 hover:ring-cyan-400/30"
         >
           Get Started
