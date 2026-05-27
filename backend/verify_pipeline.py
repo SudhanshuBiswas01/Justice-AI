@@ -40,7 +40,9 @@ def main():
         "TRAFFIC OFFENCE & FINE CHART.pdf"
     ]
     for f in files:
-        path = os.path.join(workspace_root, f)
+        path = os.path.join(workspace_root, "documents", "traffic_challan", f)
+        if not os.path.exists(path):
+            path = os.path.join(workspace_root, f)
         print(f" - {f}: {'Found' if os.path.exists(path) else 'NOT FOUND'}")
         
     print("[Test] Starting workspace PDF ingestion...")

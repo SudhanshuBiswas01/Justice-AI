@@ -109,6 +109,13 @@ class Chunker:
             # Create a unique, deterministic UUID for the chunk
             chunk_uuid = str(uuid.uuid5(uuid.NAMESPACE_URL, f"{resource_id}:chunk:{idx}"))
             
+            # Detect section number directly in the chunk content for granular tagging
+            import re
+            chunk_section = document_metadata.get("section")
+            section_match = re.search(r"(?i)\bsection\s+(\d+[A-Z\d\-\(\)]*)\b", text)
+            if section_match:
+                chunk_section = f"Section {section_match.group(1)}"
+            
             # Form self-contained chunk metadata for future vector indices
             chunk_metadata = {
                 "source": document_metadata.get("source", "unknown"),
@@ -116,7 +123,7 @@ class Chunker:
                 "doc_type": document_metadata.get("doc_type", "document"),
                 "title": document_metadata.get("title", ""),
                 "act_name": document_metadata.get("act_name"),
-                "section": document_metadata.get("section"),
+                "section": chunk_section,
                 "year": document_metadata.get("year")
             }
             

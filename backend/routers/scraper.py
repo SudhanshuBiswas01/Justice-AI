@@ -187,6 +187,22 @@ def get_logs(limit: int = Query(50, ge=1, le=100)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+def bg_embed_sync_task():
+    try:
+        from rag.ingest_embeddings import run_embedding_ingestion
+        run_embedding_ingestion()
+    except Exception as e:
+        print(f"Background embedding sync failed: {e}")
+
+@router.post("/embed-sync")
+async def trigger_embed_sync(background_tasks: BackgroundTasks):
+    """Launches embedding generation sync in the background."""
+    background_tasks.add_task(bg_embed_sync_task)
+    return {
+        "status": "ACCEPTED",
+        "message": "Embedding synchronization pipeline launched in the background."
+    }
+
 @router.get("/stats")
 def get_stats():
     """Returns database size, chunk volumes, and distributions for UI dashboard charts."""

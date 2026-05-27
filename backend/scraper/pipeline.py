@@ -209,7 +209,12 @@ class ScraperPipeline:
         print(f"[Pipeline] Scanning workspace root: {workspace_root}")
         
         for file_name, mapping in PDF_MAPPINGS.items():
-            pdf_path = os.path.join(workspace_root, file_name)
+            # Check in documents/traffic_challan/ folder first
+            pdf_path = os.path.join(workspace_root, "documents", "traffic_challan", file_name)
+            if not os.path.exists(pdf_path):
+                # Fallback to workspace root folder
+                pdf_path = os.path.join(workspace_root, file_name)
+                
             if os.path.exists(pdf_path):
                 try:
                     res_id = self.ingest_local_pdf(

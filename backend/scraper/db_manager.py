@@ -53,9 +53,16 @@ class DBManager:
                     chunk_index INTEGER NOT NULL,
                     content TEXT NOT NULL,
                     metadata_json TEXT NOT NULL,
+                    embedding TEXT,
                     FOREIGN KEY(resource_id) REFERENCES legal_resources(id) ON DELETE CASCADE
                 )
             """)
+
+            # Run migration to add embedding column dynamically if database already exists without it
+            cursor.execute("PRAGMA table_info(resource_chunks)")
+            columns = [info['name'] for info in cursor.fetchall()]
+            if 'embedding' not in columns:
+                cursor.execute("ALTER TABLE resource_chunks ADD COLUMN embedding TEXT")
 
             # 3. Create scrap_logs table
             cursor.execute("""
@@ -363,6 +370,9 @@ class DBManager:
             cursor.execute("SELECT COUNT(*) FROM resource_chunks")
             total_chunks = cursor.fetchone()[0]
             
+            cursor.execute("SELECT COUNT(*) FROM resource_chunks WHERE embedding IS NOT NULL")
+            embedded_chunks = cursor.fetchone()[0]
+            
             cursor.execute("SELECT category, COUNT(*) as count FROM legal_resources GROUP BY category")
             by_category = {row["category"]: row["count"] for row in cursor.fetchall()}
             
@@ -375,7 +385,61 @@ class DBManager:
             return {
                 "total_documents": total_docs,
                 "total_chunks": total_chunks,
+                "embedded_chunks": embedded_chunks,
+                "unembedded_chunks": total_chunks - embedded_chunks,
                 "by_category": by_category,
                 "by_source": by_source,
                 "by_doc_type": by_doc_type
             }
+
+    def save_chunk_embedding(self, chunk_id: str, embedding: List[float]):
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            embedding_str = json.dumps(embedding)
+            cursor.execute("UPDATE resource_chunks SET embedding = ? WHERE id = ?", (embedding_str, chunk_id))
+            conn.commit()
+
+    def save_chunk_embeddings_batch(self, batch: List[tuple]):
+        if not batch:
+            return
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            for chunk_id, embedding in batch:
+                embedding_str = json.dumps(embedding)
+                cursor.execute("UPDATE resource_chunks SET embedding = ? WHERE id = ?", (embedding_str, chunk_id))
+            conn.commit()
+
+    def get_unindexed_chunks(self) -> List[Dict[str, Any]]:
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT id, content, metadata_json FROM resource_chunks WHERE embedding IS NULL")
+            results = []
+            for r in cursor.fetchall():
+                item = dict(r)
+                item["metadata_json"] = json.loads(item["metadata_json"]) if item["metadata_json"] else {}
+                results.append(item)
+            return results
+
+    def get_chunks_with_embeddings_by_category(self, category: Optional[str] = None) -> List[Dict[str, Any]]:
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            if category and category != "all":
+                cursor.execute("""
+                    SELECT rc.id, rc.content, rc.metadata_json, rc.embedding, r.category
+                    FROM resource_chunks rc
+                    JOIN legal_resources r ON rc.resource_id = r.id
+                    WHERE rc.embedding IS NOT NULL AND r.category = ?
+                """, (category,))
+            else:
+                cursor.execute("""
+                    SELECT id, content, metadata_json, embedding FROM resource_chunks WHERE embedding IS NOT NULL
+                """)
+            
+            rows = cursor.fetchall()
+            results = []
+            for r in rows:
+                item = dict(r)
+                item["metadata_json"] = json.loads(item["metadata_json"]) if item["metadata_json"] else {}
+                item["embedding"] = json.loads(item["embedding"]) if item["embedding"] else []
+                results.append(item)
+            return results
