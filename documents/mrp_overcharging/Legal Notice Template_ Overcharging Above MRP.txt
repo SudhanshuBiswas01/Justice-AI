@@ -1,0 +1,36 @@
+TITLE: Legal Notice Template: Overcharging Above MRP
+SOURCE: all
+CATEGORY: mrp_overcharging
+TYPE: Complaint Template
+============================================================
+
+LEGAL NOTICE TEMPLATE: OVERCHARGING ABOVE MAXIMUM RETAIL PRICE (MRP)
+
+Date: [DATE]
+
+To,
+The Manager / Proprietor,
+[Merchant / Store Name],
+[Store Address]
+
+Subject: Legal Notice for charging price in excess of Maximum Retail Price (MRP) - Unfair Trade Practice and Violation of Legal Metrology Act, 2009.
+
+Dear Sir/Madam,
+
+Under instruction from and on behalf of my client [USER_NAME], resident of [USER_ADDRESS], I hereby serve you with this legal notice:
+
+1. That on [DATE] at around [TIME], my client visited your establishment located at [STORE_LOCATION] and purchased a packaged commodity, namely [PRODUCT_NAME, e.g., Packaged Water Bottle / Soft Drink].
+2. That the Maximum Retail Price (MRP) clearly printed on the outer cover/packaging of the said product by the manufacturer was Rs. [MRP_PRICE] (inclusive of all taxes).
+3. That your billing counter charged my client Rs. [CHARGED_PRICE] for the said product, which exceeds the printed MRP by Rs. [DIFFERENCE]. A copy of the Retail Invoice No: [INVOICE_NUMBER] is attached as proof.
+4. That charging any price in excess of the MRP declared on the package is a direct violation of Section 18 of the Legal Metrology Act, 2009, and constitutes an offence punishable under Section 36 of the Act.
+5. That this action also constitutes "deficiency of service" and an "unfair trade practice" under Section 2(47) of the Consumer Protection Act, 2019.
+
+Therefore, I hereby call upon you to:
+a) Refund the excess amount of Rs. [DIFFERENCE] to my client within 15 days of receipt of this notice.
+b) Pay my client Rs. [COMPENSATION, e.g., 5,000] towards mental harassment and Rs. [LITIGATION_COST, e.g., 3,000] towards the cost of this legal notice.
+
+Failing which, my client shall be constrained to initiate formal consumer dispute proceedings against your establishment before the District Consumer Disputes Redressal Commission at your cost and risk.
+
+Yours sincerely,
+
+[Advocate Name / Sender Name]

@@ -1,0 +1,35 @@
+TITLE: Complaint Template: Wrong Traffic Challan Grievance
+SOURCE: all
+CATEGORY: traffic_challan
+TYPE: Complaint Template
+============================================================
+
+COMPLAINT DRAFT TEMPLATE: WRONG TRAFFIC CHALLAN GRIEVANCE
+
+To,
+The Commissioner of Traffic Police,
+[City Name] Traffic Police Department,
+[City, State]
+
+Subject: Grievance against Wrong Traffic Challan No. [CHALLAN_NUMBER] for Vehicle No. [VEHICLE_NUMBER]
+
+Respected Sir/Madam,
+
+I am writing to register a formal grievance regarding the traffic e-challan issued under Challan No: [CHALLAN_NUMBER] on Date: [DATE] at Time: [TIME] for the alleged offence of [OFFENCE_NAME, e.g., Riding without Helmet / Red Light Jumping] under Section [SECTION, e.g., 194D] of the Motor Vehicles Act, 1988.
+
+I state that the challan issued is erroneous due to the following reasons:
+1. [REASON 1: e.g., The camera photograph attached to the challan clearly shows that I was wearing a standard ISI-marked helmet with the strap secured.]
+2. [REASON 2: e.g., The vehicle in the photo is not my vehicle. The license plate was misread by the automated OCR camera system.]
+3. [REASON 3: e.g., The traffic signal was green, and I crossed the line before it turned amber, as shown by the sequence of photos.]
+
+I have attached the following evidence for your perusal:
+- High-resolution copy of the official e-challan screenshot.
+- [ADDITIONAL EVIDENCE: e.g., Dashcam footage / Clear photo of my vehicle's license plate / Receipt of my ISI helmet].
+
+Therefore, I request you to review the visual evidence and cancel/quash the erroneous Challan No. [CHALLAN_NUMBER] in your records.
+
+Yours faithfully,
+
+[User Name]
+[Mobile Number]
+[Address]
