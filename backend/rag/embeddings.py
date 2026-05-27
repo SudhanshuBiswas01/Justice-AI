@@ -13,7 +13,16 @@ class EmbeddingHelper:
         self.gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
         self.openai_key = os.getenv("OPENAI_API_KEY")
         
-        if self.gemini_key:
+        # Cache credentials to prevent slow token fetches on every batch
+        self.gcp_token = None
+        self.gcp_project = None
+        self._load_gcp_credentials()
+        
+        if self.gcp_token and self.gcp_project:
+            self.provider = "vertex"
+            self.dimension = 768
+            print(f"[Embeddings] Initialized Vertex AI embedding provider (GCP Project: {self.gcp_project}, Dimension: 768).")
+        elif self.gemini_key:
             self.provider = "gemini"
             self.dimension = 768
             print("[Embeddings] Initialized Gemini API embedding provider (Dimension: 768).")
@@ -24,14 +33,53 @@ class EmbeddingHelper:
         else:
             self.provider = "fallback"
             self.dimension = 384
-            print("[Embeddings] No API keys detected. Initialized offline Token-Hashing fallback (Dimension: 384).")
+            print("[Embeddings] No API keys or GCP credentials detected. Initialized offline Token-Hashing fallback (Dimension: 384).")
+
+    def _load_gcp_credentials(self, force=False):
+        if not self.gcp_token or force:
+            try:
+                from rag.gcp_auth import get_gcp_credentials
+                self.gcp_token, self.gcp_project = get_gcp_credentials()
+            except Exception as e:
+                print(f"[Embeddings] Failed to load GCP credentials: {e}")
 
     def get_embedding(self, text: str) -> List[float]:
         """Generates embedding vector for a single string."""
         if not text:
             return [0.0] * self.dimension
             
-        if self.provider == "gemini":
+        if self.provider == "vertex":
+            for attempt in range(2):
+                try:
+                    self._load_gcp_credentials()
+                    if self.gcp_token and self.gcp_project:
+                        url = f"https://us-central1-aiplatform.googleapis.com/v1/projects/{self.gcp_project}/locations/us-central1/publishers/google/models/text-embedding-004:predict"
+                        headers = {
+                            "Authorization": f"Bearer {self.gcp_token}",
+                            "Content-Type": "application/json"
+                        }
+                        payload = {
+                            "instances": [{"content": text}]
+                        }
+                        res = requests.post(url, headers=headers, json=payload, timeout=10)
+                        if res.status_code == 200:
+                            data = res.json()
+                            return data["predictions"][0]["embeddings"]["values"]
+                        elif res.status_code == 401:
+                            print("[Embeddings] Token expired (401). Refreshing credentials...")
+                            self._load_gcp_credentials(force=True)
+                            continue
+                        else:
+                            print(f"[Embeddings] Vertex AI API error: {res.status_code} - {res.text}. Falling back to token-hashing.")
+                            break
+                    else:
+                        print("[Embeddings] GCP credentials not available. Falling back to token-hashing.")
+                        break
+                except Exception as e:
+                    print(f"[Embeddings] Vertex AI API failed: {e}. Falling back to token-hashing.")
+                    break
+                
+        elif self.provider == "gemini":
             try:
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key={self.gemini_key}"
                 payload = {
@@ -77,7 +125,38 @@ class EmbeddingHelper:
         if not texts:
             return []
             
-        if self.provider == "gemini" and self.gemini_key:
+        if self.provider == "vertex":
+            for attempt in range(2):
+                try:
+                    self._load_gcp_credentials()
+                    if self.gcp_token and self.gcp_project:
+                        url = f"https://us-central1-aiplatform.googleapis.com/v1/projects/{self.gcp_project}/locations/us-central1/publishers/google/models/text-embedding-004:predict"
+                        headers = {
+                            "Authorization": f"Bearer {self.gcp_token}",
+                            "Content-Type": "application/json"
+                        }
+                        payload = {
+                            "instances": [{"content": t} for t in texts]
+                        }
+                        res = requests.post(url, headers=headers, json=payload, timeout=20)
+                        if res.status_code == 200:
+                            data = res.json()
+                            return [pred["embeddings"]["values"] for pred in data["predictions"]]
+                        elif res.status_code == 401:
+                            print("[Embeddings] Token expired (401). Refreshing credentials...")
+                            self._load_gcp_credentials(force=True)
+                            continue
+                        else:
+                            print(f"[Embeddings] Vertex Batch API error: {res.status_code}. Using fallback.")
+                            break
+                    else:
+                        print("[Embeddings] GCP credentials not available. Using fallback.")
+                        break
+                except Exception as e:
+                    print(f"[Embeddings] Vertex Batch API failed: {e}. Using fallback.")
+                    break
+                
+        elif self.provider == "gemini" and self.gemini_key:
             try:
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:batchEmbedContents?key={self.gemini_key}"
                 requests_payload = []

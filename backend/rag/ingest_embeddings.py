@@ -35,7 +35,7 @@ def run_embedding_ingestion(db_path: Optional[str] = None,
         
     log(f"[Ingest] Found {total} unindexed chunks. Commencing batch embedding processing...")
     
-    batch_size = 20
+    batch_size = 100
     indexed_count = 0
     start_time = time.time()
     

@@ -37,10 +37,13 @@ Be direct, clear, and professional. Format your response with clear headings for
 
 @router.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(request: ChatRequest):
-    if not GEMINI_API_KEY and not groq_client:
+    from rag.gcp_auth import get_gcp_credentials
+    gcp_token, gcp_proj = get_gcp_credentials()
+    
+    if not gcp_token and not GEMINI_API_KEY and not groq_client:
         raise HTTPException(
             status_code=500, 
-            detail="Server API keys not configured. Please set GEMINI_API_KEY or GROQ_API_KEY."
+            detail="Server API credentials not configured. Please set GEMINI_API_KEY, GROQ_API_KEY, or authenticate Google Cloud ADC."
         )
         
     try:
@@ -66,97 +69,20 @@ async def chat_endpoint(request: ChatRequest):
             elif any(w in query_lower for w in ["grievance", "complaint", "daakhil", "nch", "consumer court"]):
                 category = "consumer_dispute"
                 
-        # 3. Retrieve relevant legal context from SQLite VectorStore
-        context_text = ""
-        retrieved_chunks = []
-        if latest_query:
-            try:
-                from rag.vector_store import VectorStore
-                store = VectorStore()
-                retrieved_chunks = store.search(latest_query, category=category, top_k=4)
-                
-                if retrieved_chunks:
-                    context_segments = []
-                    for idx, chunk in enumerate(retrieved_chunks):
-                        meta = chunk.get("metadata", {})
-                        source_info = f"Source: {meta.get('source', 'Unknown')} | Title: {meta.get('title', 'Unknown')}"
-                        if meta.get("act_name"):
-                            source_info += f" | Act: {meta.get('act_name')}"
-                        if meta.get("section"):
-                            source_info += f" | Section: {meta.get('section')}"
-                            
-                        context_segments.append(
-                            f"--- Reference Document #{idx+1} ({source_info}) ---\n"
-                            f"{chunk['content']}"
-                        )
-                    context_text = "\n\n".join(context_segments)
-            except Exception as e:
-                print(f"[RAG Retrieval Error] {e}")
-
-        # 4. Construct System Prompt with injected context
-        system_prompt = SYSTEM_PROMPT
-        if context_text:
-            system_prompt += (
-                f"\n\n=== RELEVANT LEGAL REFERENCE CONTEXT ===\n"
-                f"You MUST use this official context to retrieve exact fines, sections, rules, and procedures:\n\n"
-                f"{context_text}\n"
-                f"========================================"
-            )
-
-        # 5. Call LLM (Prefer Gemini if API key is present, fallback to Groq)
-        if GEMINI_API_KEY:
-            try:
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
-                
-                # Map roles for Gemini
-                gemini_contents = []
-                for msg in request.messages:
-                    role = "user" if msg.role == "user" else "model"
-                    gemini_contents.append({
-                        "role": role,
-                        "parts": [{"text": msg.content}]
-                    })
-                
-                payload = {
-                    "contents": gemini_contents,
-                    "systemInstruction": {
-                        "parts": [{"text": system_prompt}]
-                    },
-                    "generationConfig": {
-                        "temperature": 0.3,
-                        "maxOutputTokens": 2048
-                    }
-                }
-                
-                response = requests.post(url, json=payload, timeout=25)
-                if response.status_code == 200:
-                    data = response.json()
-                    ai_reply = data["candidates"][0]["content"]["parts"][0]["text"]
-                    return ChatResponse(response=ai_reply)
-                else:
-                    print(f"[RAG LLM] Gemini API error ({response.status_code}): {response.text}. Falling back to Groq.")
-            except Exception as e:
-                print(f"[RAG LLM] Gemini API failed: {e}. Falling back to Groq.")
-
-        # Fallback to Groq if Gemini is not configured or fails
-        if not groq_client:
-            raise HTTPException(
-                status_code=500, 
-                detail="Gemini call failed/unconfigured, and Groq API key is missing."
-            )
-            
-        llm_messages = [{"role": "system", "content": system_prompt}]
-        for msg in request.messages:
-            llm_messages.append({"role": msg.role, "content": msg.content})
-            
-        chat_completion = groq_client.chat.completions.create(
-            messages=llm_messages,
-            model="llama-3.3-70b-versatile",
-            temperature=0.3,
-            max_tokens=2048,
-        )
+        # 3. Route request through CRAG & Verification Agent pipeline
+        from rag.crag_pipeline import CRAGPipeline
+        pipeline = CRAGPipeline()
         
-        return ChatResponse(response=chat_completion.choices[0].message.content)
+        # Convert request messages to format expected by CRAG pipeline
+        formatted_messages = []
+        for msg in request.messages:
+            formatted_messages.append({
+                "role": msg.role,
+                "content": msg.content
+            })
+            
+        ai_reply = pipeline.generate_legal_guidance(formatted_messages, category)
+        return ChatResponse(response=ai_reply)
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
