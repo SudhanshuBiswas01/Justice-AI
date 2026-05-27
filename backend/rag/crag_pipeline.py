@@ -17,11 +17,12 @@ def call_gemini_llm(model: str, system_instruction: str, user_content: str, json
     """
     # 1. Try Google Cloud Vertex AI (utilizes the user's $300 GCP credit account)
     from rag.gcp_auth import get_gcp_credentials
-    token, project = get_gcp_credentials()
-    if token and project:
-        # Vertex AI uses the exact model name for Gemini 2.5
-        vertex_model = model
-        try:
+    
+    import time
+    for attempt in range(2):
+        token, project = get_gcp_credentials(force=(attempt > 0))
+        if token and project:
+            vertex_model = model
             url = f"https://us-central1-aiplatform.googleapis.com/v1/projects/{project}/locations/us-central1/publishers/google/models/{vertex_model}:generateContent"
             headers = {
                 "Authorization": f"Bearer {token}",
@@ -42,14 +43,39 @@ def call_gemini_llm(model: str, system_instruction: str, user_content: str, json
                     "responseMimeType": "application/json" if json_mode else "text/plain"
                 }
             }
-            res = requests.post(url, headers=headers, json=payload, timeout=25)
-            if res.status_code == 200:
-                data = res.json()
-                return data["candidates"][0]["content"]["parts"][0]["text"]
+            
+            # Retry loop for transient network timeouts or server errors
+            for call_retry in range(3):
+                try:
+                    res = requests.post(url, headers=headers, json=payload, timeout=30)
+                    if res.status_code == 200:
+                        data = res.json()
+                        return data["candidates"][0]["content"]["parts"][0]["text"]
+                    elif res.status_code == 401 and attempt == 0:
+                        print("[LLM-Vertex] Token expired (401) on LLM call. Retrying with fresh credentials...")
+                        break  # Break out of the retry loop to refresh credentials in the outer loop
+                    elif res.status_code in [429, 503] and call_retry < 2:
+                        print(f"[LLM-Vertex] Rate limit/Server error ({res.status_code}). Retrying in 2s...")
+                        time.sleep(2)
+                        continue
+                    else:
+                        print(f"[LLM-Vertex] API error: {res.status_code} - {res.text}. Trying AI Studio fallback...")
+                        break
+                except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
+                    if call_retry < 2:
+                        print(f"[LLM-Vertex] Request timed out or network error: {e}. Retrying in 2s...")
+                        time.sleep(2)
+                        continue
+                    else:
+                        print(f"[LLM-Vertex] Request failed after retries: {e}. Trying AI Studio fallback...")
+                        break
             else:
-                print(f"[LLM-Vertex] API error: {res.status_code} - {res.text}. Trying AI Studio fallback...")
-        except Exception as e:
-            print(f"[LLM-Vertex] Call failed: {e}. Trying AI Studio fallback...")
+                # If we broke out of the inner loop without returning, continue outer loop
+                continue
+            # If we broke out via break (non-retryable error), exit outer loop
+            break
+        else:
+            break
 
     # 2. Try Google AI Studio (using Developer keys)
     gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
