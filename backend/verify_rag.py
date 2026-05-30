@@ -8,7 +8,7 @@ if BACKEND_DIR not in sys.path:
 
 from rag.ingest_embeddings import run_embedding_ingestion
 from rag.vector_store import VectorStore
-from scraper.db_manager import DBManager
+from .scraper.db_manager import DBManager
 
 def main():
     print("=== Justice AI RAG Infrastructure Verification ===")

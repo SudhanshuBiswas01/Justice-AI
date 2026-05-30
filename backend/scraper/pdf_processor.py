@@ -1,7 +1,7 @@
 import pypdf
 import os
 from typing import Dict, Any, Optional
-from scraper.text_cleaner import TextCleaner
+from .text_cleaner import TextCleaner
 
 class PDFProcessor:
     @staticmethod

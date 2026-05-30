@@ -1,13 +1,13 @@
 import os
 import uuid
 from typing import List, Dict, Any, Optional
-from scraper.db_manager import DBManager
-from scraper.pdf_processor import PDFProcessor
-from scraper.metadata_extractor import MetadataExtractor
-from scraper.chunker import Chunker
-from scraper.indian_kanoon import IndianKanoonScraper
-from scraper.india_code import IndiaCodeScraper
-from scraper.grievance_scraper import GrievanceScraper
+from .db_manager import DBManager
+from .pdf_processor import PDFProcessor
+from .metadata_extractor import MetadataExtractor
+from .chunker import Chunker
+from .indian_kanoon import IndianKanoonScraper
+from .india_code import IndiaCodeScraper
+from .grievance_scraper import GrievanceScraper
 
 class ScraperPipeline:
     def __init__(self, db_path: Optional[str] = None):
@@ -59,7 +59,7 @@ class ScraperPipeline:
                     doc_url = doc.get("url", "")
                     
                     # Clean text
-                    from scraper.text_cleaner import TextCleaner
+                    from .text_cleaner import TextCleaner
                     cleaned_content = TextCleaner.clean_text(raw_content)
                     
                     if not cleaned_content:
