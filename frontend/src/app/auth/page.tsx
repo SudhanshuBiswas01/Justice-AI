@@ -62,6 +62,7 @@ function AuthPageInner() {
 
     const res = await signIn("credentials", {
       redirect: false,
+      callbackUrl: "/app",
       email,
       password,
       name,
@@ -71,6 +72,7 @@ function AuthPageInner() {
     setLoading(false);
 
     if (res?.error) {
+      // NextAuth passes the thrown Error message through res.error
       setError(res.error);
     } else if (res?.ok) {
       router.replace("/app");
