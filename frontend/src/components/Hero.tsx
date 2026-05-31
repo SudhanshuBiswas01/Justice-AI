@@ -23,7 +23,7 @@ export function Hero() {
 
         <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
           <a
-            href="/chat"
+            href="/auth"
             className="group relative inline-flex h-12 min-w-[160px] items-center justify-center rounded-2xl bg-gradient-to-r from-cyan-500 to-violet-500 px-8 text-sm font-semibold text-white shadow-lg shadow-cyan-500/25 transition-all duration-300 hover:scale-[1.03] hover:shadow-cyan-500/40"
           >
             Get Started

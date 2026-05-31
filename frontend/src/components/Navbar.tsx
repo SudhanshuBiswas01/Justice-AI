@@ -2,6 +2,7 @@
 
 import { useSession, signIn, signOut } from "next-auth/react";
 import Image from "next/image";
+import Link from "next/link";
 
 export function Navbar() {
   const { data: session, status } = useSession();
@@ -54,7 +55,7 @@ export function Navbar() {
               </span>
               <button
                 id="sign-out-btn"
-                onClick={() => signOut({ callbackUrl: "/login" })}
+                onClick={() => signOut({ callbackUrl: "/auth" })}
                 className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-zinc-400 transition-all hover:border-rose-400/30 hover:bg-rose-500/10 hover:text-rose-300"
               >
                 Sign out
@@ -62,13 +63,13 @@ export function Navbar() {
             </div>
           ) : (
             /* Not logged in — show Sign In button */
-            <button
+            <Link
               id="sign-in-btn"
-              onClick={() => signIn("google", { callbackUrl: "/chat" })}
+              href="/auth"
               className="rounded-xl bg-white/5 px-4 py-2 text-xs font-semibold text-zinc-200 ring-1 ring-white/10 transition-all hover:bg-white/10 hover:ring-cyan-400/30"
             >
               Sign In
-            </button>
+            </Link>
           )}
         </div>
       </nav>
