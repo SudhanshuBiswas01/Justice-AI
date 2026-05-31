@@ -8,7 +8,7 @@ export function Hero() {
       <div className="relative z-10 mx-auto max-w-4xl">
         <p className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs font-medium tracking-widest text-cyan-300/90 uppercase backdrop-blur-md">
           <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 shadow-[0_0_8px_#22d3ee]" />
-          Justice AI V0.5
+          Justice AI V1.0
         </p>
 
         <h1 className="text-5xl font-bold tracking-tight sm:text-6xl md:text-7xl">

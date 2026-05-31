@@ -74,18 +74,12 @@ export function ChatMessage({ role, content }: ChatMessageProps) {
                     {children}
                   </ol>
                 ),
-                li: ({ children, ...props }) => {
-                  const isOrdered = props.node?.parentNode?.type === "element" && 
-                    (props.node?.parentNode as unknown as { tagName: string })?.tagName === "ol";
-                  return (
-                    <li className="flex items-start gap-2 text-zinc-200">
-                      <span className={`mt-1.5 flex-shrink-0 w-1.5 h-1.5 rounded-full ${
-                        isOrdered ? "bg-violet-400" : "bg-cyan-400"
-                      }`} />
-                      <span className="flex-1">{children}</span>
-                    </li>
-                  );
-                },
+                li: ({ children }) => (
+                  <li className="flex items-start gap-2 text-zinc-200">
+                    <span className="mt-1.5 flex-shrink-0 w-1.5 h-1.5 rounded-full bg-cyan-400" />
+                    <span className="flex-1">{children}</span>
+                  </li>
+                ),
                 blockquote: ({ children }) => (
                   <blockquote className="border-l-2 border-violet-400/50 pl-3 my-2.5 text-zinc-300 italic bg-violet-500/5 py-1.5 rounded-r-lg">
                     {children}
