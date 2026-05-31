@@ -34,25 +34,33 @@ export function Navbar() {
           {isLoading ? (
             <div className="h-8 w-8 animate-pulse rounded-full bg-white/10" />
           ) : session ? (
-            /* Logged in — show avatar + sign out */
+            /* Logged in */
             <div className="flex items-center gap-3">
-              {session.user?.image ? (
-                <Image
-                  src={session.user.image}
-                  alt={session.user.name ?? "User"}
-                  width={32}
-                  height={32}
-                  className="rounded-full ring-2 ring-cyan-400/30"
-                  referrerPolicy="no-referrer"
-                />
-              ) : (
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-cyan-500 to-violet-500 text-xs font-bold text-white">
-                  {session.user?.name?.[0] ?? "U"}
-                </div>
-              )}
-              <span className="hidden text-sm text-zinc-300 sm:block">
-                {session.user?.name?.split(" ")[0]}
-              </span>
+              <Link
+                href="/app"
+                className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-white/8 bg-white/4 px-3 py-1.5 text-xs text-zinc-400 transition hover:border-white/15 hover:text-zinc-200"
+              >
+                Dashboard
+              </Link>
+              <Link href="/app" className="flex items-center gap-2">
+                {session.user?.image ? (
+                  <Image
+                    src={session.user.image}
+                    alt={session.user.name ?? "User"}
+                    width={32}
+                    height={32}
+                    className="rounded-full ring-2 ring-cyan-400/30"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-cyan-500 to-violet-500 text-xs font-bold text-white">
+                    {session.user?.name?.[0] ?? "U"}
+                  </div>
+                )}
+                <span className="hidden text-sm text-zinc-300 sm:block">
+                  {session.user?.name?.split(" ")[0]}
+                </span>
+              </Link>
               <button
                 id="sign-out-btn"
                 onClick={() => signOut({ callbackUrl: "/auth" })}
@@ -62,7 +70,7 @@ export function Navbar() {
               </button>
             </div>
           ) : (
-            /* Not logged in — show Sign In button */
+            /* Not logged in */
             <Link
               id="sign-in-btn"
               href="/auth"
