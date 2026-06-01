@@ -53,6 +53,57 @@ To act as the **first layer of defense** for the everyday consumer. By combining
 
 ## 🏗️ 4. Technical Architecture
 
+```mermaid
+graph TD
+    %% Styling definitions
+    classDef frontend fill:#3b82f6,stroke:#1d4ed8,stroke-width:2px,color:#fff,rx:10,ry:10;
+    classDef backend fill:#10b981,stroke:#047857,stroke-width:2px,color:#fff,rx:10,ry:10;
+    classDef db fill:#f59e0b,stroke:#b45309,stroke-width:2px,color:#fff,rx:10,ry:10;
+    classDef llm fill:#8b5cf6,stroke:#5b21b6,stroke-width:2px,color:#fff,rx:10,ry:10;
+    classDef external fill:#ef4444,stroke:#b91c1c,stroke-width:2px,color:#fff,rx:10,ry:10;
+
+    subgraph "Frontend (Next.js)"
+        UI[User Interface]:::frontend
+        AuthClient[NextAuth.js Client]:::frontend
+    end
+
+    subgraph "Backend (FastAPI)"
+        API[API Gateway/Router]:::backend
+        RAG[RAG Pipeline Engine]:::backend
+        AuthAPI[Auth Middleware]:::backend
+        Scraper[Legal Scraper/Ingestion]:::backend
+    end
+
+    subgraph "Databases"
+        PG[(PostgreSQL - Auth/Users)]:::db
+        SQLite[(SQLite - Vector/Docs)]:::db
+    end
+
+    subgraph "AI & External Providers"
+        Vertex[Vertex AI / Gemini 2.5]:::llm
+        Embed[Embedding Models]:::llm
+        Groq[Groq API / Llama 3.3]:::llm
+        OAuth[Google OAuth]:::external
+    end
+
+    %% Connections
+    UI -->|HTTP/REST| API
+    UI -->|Auth Flow| AuthClient
+    AuthClient <-->|Token Exchange| OAuth
+    AuthClient -->|Persist Users| PG
+    
+    API --> AuthAPI
+    AuthAPI --> RAG
+    
+    RAG -->|Semantic Search| SQLite
+    RAG <-->|Stream Response| Vertex
+    RAG <-->|Generate Embeddings| Embed
+    RAG -.->|Fallback| Groq
+    
+    Scraper -->|Extract & Clean| SQLite
+    Scraper <-->|Metadata Extraction| Groq
+```
+
 Justice AI is designed as a scalable, modern SaaS application, utilizing a decoupled frontend and backend.
 
 ### Frontend
