@@ -1,335 +1,228 @@
-
-
-# Justice AI (Layer AI)
-
-**Layer AI V1.0** is an AI-powered legal assistance platform focused on solving small-scale consumer and traffic-related disputes in India. Instead of generic legal chat, the system routes each case through **category-specific workflows** backed by dedicated RAG pipelines trained on Indian legal acts, case laws, and government procedures.
-
-Users can describe their issue in plain language or upload challans, bills, or screenshots. The platform runs **OCR**, lightweight **ML classifiers**, and **retrieval-augmented generation (RAG)** before an LLM produces actionable guidance: relevant law references, step-by-step remedies, and draft complaints where appropriate.
-
-**V1 scope (this HLD):** Wrong traffic challans, overcharging above MRP, and refund / consumer disputes. The design stays **deterministic and reliable**—no multi-agent orchestration in V1.
-
----
-
-## Contributors
-
-| Name | Role |
-|------|------|
-| **Sudhanshu Biswas** | Author & maintainer |
+<div align="center">
+  <h1>⚖️ Justice AI</h1>
+  <p><strong>AI-powered Legal Assistance SaaS for Indian Consumer & Traffic Disputes</strong></p>
+  <p>
+    <a href="#project-overview">Overview</a> •
+    <a href="#core-features">Features</a> •
+    <a href="#technical-architecture">Architecture</a> •
+    <a href="#ai-llm-stack">AI Stack</a> •
+    <a href="#rag-architecture">RAG Pipeline</a> •
+    <a href="#setup-instructions">Setup</a>
+  </p>
+</div>
 
 ---
 
-# Layer AI — V1 High-Level Design (HLD)
+## 📖 1. Project Overview
 
-## End-to-end flow
+**Justice AI** is an intelligent, modular legal tech platform built to democratize access to legal guidance in India. We focus strictly on the cases that typically go ignored—small-scale consumer grievances, arbitrary traffic challans, MRP overcharging, and e-commerce refund disputes. 
 
-Primary system flow (author design):
+### 🛑 The Problem
+In India, small claims and minor disputes are rarely contested. The legal cost, procedural ambiguity, and sheer time required to fight a ₹5,000 refund or a ₹1,000 traffic challan completely outweigh the benefits. As a result, users suffer in silence, and unfair practices thrive.
 
-```mermaid
-flowchart TD
-    A[User opens Justice AI] --> B[Landing Page]
+### 💡 Our Vision
+To act as the **first layer of defense** for the everyday consumer. By combining localized legal reasoning, RAG (Retrieval-Augmented Generation), OCR, and structured workflows, Justice AI helps users instantly determine if they have a case, outlines a precise legal strategy, and will soon automate drafting legal complaints.
 
-    B --> C{Select Category}
+---
 
-    C -->|Traffic Challan| D[Load Traffic Workflow]
-    C -->|MRP Overcharging| E[Load MRP Workflow]
-    C -->|Refund Dispute| F[Load Refund Workflow]
-    C -->|+N Future Categories| G[Load Dynamic Workflow]
+## 🚀 2. Current Status
 
-    D --> H[User Input Layer]
-    E --> H
-    F --> H
-    G --> H
+**Current Version:** `V0.5` ➡️ **Road to V1**
 
-    H --> I{Document Uploaded?}
+* ✅ **RAG Chatbot:** Fully functional streaming legal guidance utilizing Vertex AI and CRAG.
+* ✅ **Auth Integration:** PostgreSQL-backed NextAuth with Google OAuth & Email/Password in place.
+* ✅ **Data Pipeline:** Scalable scraping & vector embedding ingestion for Indian legal texts.
+* 🚧 **OCR Uploads:** In progress (extracting text from challans/bills).
+* 🚧 **Complaint Generation:** Planned for V1.
 
-    I -->|Yes| J[OCR + Text Extraction]
-    I -->|No| K[Direct Text Input]
+---
 
-    J --> L[Metadata Extraction]
-    K --> L
+## ✨ 3. Core Features
 
-    L --> M{ML Module Needed?}
+* 🗂️ **Category-Based Workflows:** Specialized pipelines for distinct legal categories:
+  * 🚦 **Traffic Challan Disputes**
+  * 🏷️ **MRP Overcharging Claims**
+  * 🛒 **E-Commerce & Refund Disputes**
+* 🧠 **Legal Document Retrieval:** Semantically searches a curated corpus of Indian acts, rules, and judgements.
+* 🔒 **Google Authentication & Secure Sessions:** Built on NextAuth.js and PostgreSQL.
+* ⚡ **Streaming AI Responses:** Instant, ultra-low latency response streaming directly to the UI.
+* 💼 **SaaS-Style Dashboard:** Modern, dark-mode, minimal SaaS interface built for accessibility and trust.
+* 📝 **AI-Generated Complaint Drafts:** (Upcoming) Automated drafting of legal notices tailored for the National Consumer Helpline (NCH) or eDaakhil.
 
-    M -->|Yes| N[Category-specific ML Model]
-    M -->|No| O[Skip ML Layer]
+---
 
-    N --> P[Category-specific RAG Retrieval]
-    O --> P
+## 🏗️ 4. Technical Architecture
 
-    P --> Q[LLM Reasoning Engine]
+Justice AI is designed as a scalable, modern SaaS application, utilizing a decoupled frontend and backend.
 
-    Q --> R[Legal Guidance + Action Steps]
+### Frontend
+* **Framework:** Next.js 14+ (App Router), React, TypeScript.
+* **Styling:** Tailwind CSS (Dark-themed, professional legal-tech aesthetic).
+* **Auth:** NextAuth.js v4 (Pure JWT sessions, Google OAuth, bcryptjs credentials).
 
-    R --> S{Generate Complaint?}
+### Backend
+* **Framework:** FastAPI (Python) for high-performance async APIs.
+* **Database (Auth):** PostgreSQL (`justice_users` table).
+* **Database (Vector/Corpus):** SQLite (`legal_resources.db`).
+* **Retrieval Flow:** Vector search via locally computed L2-normalized embeddings, routed to LLMs with strict system instructions.
+* **Streaming:** Async generator utilizing Server-Sent Events (SSE) to stream Vertex AI / Gemini responses.
 
-    S -->|Yes| T[Complaint Generator V1 Lite]
-    S -->|No| U[End]
+---
 
-    T --> U
+## 🧠 5. AI & LLM Stack
+
+Our AI stack is designed with built-in redundancies, ensuring maximum uptime and cost efficiency.
+
+* **Primary Reasoning LLM:** `gemini-2.5-flash` via **Google Cloud Vertex AI** (GCP ADC authentication).
+* **Primary Fallback:** Google AI Studio API (`gemini-2.5-flash`).
+* **Secondary Fallback:** Groq Cloud API (`llama-3.3-70b-versatile`).
+* **Embedding Models:** 
+  * Primary: Google `text-embedding-004` (768 dimensions).
+  * Fallback: OpenAI `text-embedding-3-small` (1536 dimensions).
+  * Offline Fallback: Custom deterministic Token-Hashing Bag-of-Words (384 dimensions) with query expansion.
+* **Metadata Extraction (Scraper Pipeline):** `llama-3.3-70b-versatile` (via Groq) is used to heuristically structure scraped legal text into distinct schema fields (Act, Year, Sections, Summary).
+
+---
+
+## 🔍 6. RAG Architecture
+
+Justice AI relies on a heavily optimized Retrieval-Augmented Generation (RAG) pipeline.
+
+* **Simple RAG:** We currently rely on a highly tuned Simple RAG pipeline. User queries are matched against local vector embeddings, filtered by confidence thresholds, and injected as context.
+* **The CRAG Experiment:** We initially explored Corrective RAG (CRAG) involving an LLM-based grader to evaluate document relevance before generation.
+* **Latency Challenges:** The LLM evaluation step in CRAG added 3-5 seconds of latency per turn. For a consumer SaaS application, this broke the UX.
+* **The Decision:** We rolled back to a score-threshold Simple RAG pipeline, bringing TTFT (Time To First Token) down to < 1 second. 
+* **Confidence-Aware Retrieval:** If cosine similarity scores fall below `0.65`, the system gracefully restricts hallucination by informing the LLM of "Limited Context".
+* **Future Direction:** We are moving toward **Agentic RAG / Self-RAG**, offloading verification to asynchronous background tasks rather than blocking the main chat thread.
+
+---
+
+## 📚 7. Data Sources
+
+Our knowledge base is aggressively curated to prevent general-purpose hallucination, populated from:
+* 🏛️ **India Code** (Bare Acts & Rules)
+* ⚖️ **Indian Kanoon** (Case Law & Judgements)
+* 🏛️ **Supreme Court & High Court Portals**
+* 🏢 **eCourts & Consumer Forums** (NCH, eDaakhil guidelines)
+
+---
+
+## 🗄️ 8. Database Structure
+
+We utilize a deliberate **Hybrid Database Architecture**:
+
+* 🪶 **SQLite (`legal_resources.db`):** Houses the scraped legal corpus, pre-computed vector embeddings, and chunk metadata. Chosen for its portability, zero-config setup, and ease of distributing the RAG knowledge base.
+* 🐘 **PostgreSQL (`justiceai`):** Handles user data, NextAuth identities, and application state. Chosen for robust relational integrity, concurrency, and future scalability for SaaS billing and chat history.
+
+---
+
+## 🧗‍♂️ 9. Challenges Faced
+
+Building a deterministic legal AI is hard. Key challenges included:
+* ⏱️ **Latency in RAG Pipelines:** Balancing complex multi-step reasoning (CRAG) with user expectations for instant SaaS responses.
+* 🎯 **Retrieval Quality vs. Corpus Size:** The Indian legal corpus is massive and highly nuanced. Standard chunking often split critical context (like exceptions to a rule).
+* 🤖 **Legal Hallucinations:** Stopping the LLM from making up fine amounts or section numbers when it lacked context.
+* 🏷️ **Metadata Tagging:** Extracting accurate metadata (Year, Act, Section) from unstructured HTML/PDF legal documents required a dedicated LLM pipeline.
+* 🔄 **OAuth & Session Management:** Managing redirect loops and JWT persistence in Next.js App Router.
+
+---
+
+## 💡 10. Learnings
+
+* **Modular Backend Architecture:** Decoupling the scraper, embedder, and API router was critical for maintaining sanity.
+* **Production AI Workflows:** A 95% accurate RAG system is useless if it takes 15 seconds to reply. Speed is a feature.
+* **Vector Search Systems:** L2 normalized dot products are incredibly fast and completely sufficient for our scale compared to deploying heavy vector databases.
+* **Legal-Tech System Design:** You cannot trust LLMs to interpret law directly; you must constrain them to act as synthesis engines over verified retrieved text.
+* **SaaS-Oriented Thinking:** Users don't care about the AI; they care about solving their ₹2000 refund issue. The UX must reflect that urgency and clarity.
+
+---
+
+## 🔮 11. Future Roadmap
+
+- [ ] **OCR Uploads:** Allow users to upload traffic challans or invoices for automated parsing.
+- [ ] **Complaint Generator:** Auto-fill standardized legal notices and NCH complaint formats.
+- [ ] **Case Success Prediction:** Use ML models to estimate the probability of winning based on historical judgements.
+- [ ] **Agentic Workflows:** Multi-agent collaboration (e.g., a "Researcher" agent passing data to a "Drafter" agent).
+- [ ] **Deployment:** Containerize via Docker and deploy to AWS/GCP with scalable vector infrastructure (Pinecone/Milvus).
+
+---
+
+## 📁 12. Folder Structure
+
+```text
+Justice-AI/
+├── backend/                  # FastAPI Application
+│   ├── data/                 # SQLite DB and raw corpus files
+│   ├── rag/                  # RAG Pipelines, Vector Store, Embeddings
+│   ├── routers/              # API Endpoints (chat, scraper)
+│   ├── scraper/              # Data ingestion, chunking, LLM metadata extraction
+│   └── main.py               # FastAPI Entrypoint
+├── frontend/                 # Next.js Application
+│   ├── src/
+│   │   ├── app/              # App Router (auth, app, chat, landing)
+│   │   ├── components/       # UI Components
+│   │   ├── lib/              # Auth config, DB connections
+│   │   └── types/            # TypeScript definitions
+│   ├── public/               # Static assets
+│   ├── tailwind.config.ts    # Styling configuration
+│   └── .env.local            # Frontend environment variables
+├── documents/                # Project documentation and planning
+├── README.md                 # You are here
+└── TROUBLESHOOTING.md        # Debugging and runbooks
 ```
 
 ---
 
-## 1. Landing page & category selection
+## 🛠️ 13. Setup Instructions
 
-```mermaid
-flowchart TD
-    A[User opens Justice AI] --> B[Landing Page]
-    B --> C{Select Category}
-    C -->|Traffic Challan| D[Load Traffic Workflow]
-    C -->|MRP Overcharging| E[Load MRP Workflow]
-    C -->|Refund Dispute| F[Load Refund Workflow]
-    C -->|+N Future Categories| G[Load Dynamic Workflow]
+### Prerequisites
+* Python 3.10+
+* Node.js 18+
+* PostgreSQL running locally or via Docker
+
+### 1. Environment Variables
+You will need two environment files.
+
+**Backend (`backend/.env`):**
+```env
+GEMINI_API_KEY=your_gemini_key
+GROQ_API_KEY=your_groq_key
+# Or use GCP Application Default Credentials via `gcloud auth application-default login`
 ```
 
-**V1 categories:** Traffic Challan, MRP Overcharging, Refund Dispute.  
-**Future:** `+N` categories plug into a **Dynamic Workflow** loader without changing the core pipeline.
-
----
-
-## 2. Category workflows
-
-Each loaded workflow bundles its own RAG dataset, prompts, SOPs, and optional ML model.
-
-```mermaid
-flowchart TB
-    C{Select Category} --> D[Load Traffic Workflow]
-    C --> E[Load MRP Workflow]
-    C --> F[Load Refund Workflow]
-    C --> G[Load Dynamic Workflow]
-
-    subgraph Traffic["Traffic Workflow"]
-        T1[Motor Vehicles Act]
-        T2[Challan rules & fine tables]
-        T3[Traffic case laws]
-        T4[ML: challan validity model]
-        T5[Traffic RAG index]
-    end
-
-    subgraph MRP["MRP Workflow"]
-        M1[Legal Metrology Act]
-        M2[MRP rulings]
-        M3[Consumer cases]
-        M4[ML: complaint category model]
-        M5[MRP RAG index]
-    end
-
-    subgraph Refund["Refund Workflow"]
-        R1[Consumer Protection Act]
-        R2[E-commerce rules]
-        R3[Refund judgments]
-        R4[ML: dispute type model]
-        R5[Refund RAG index]
-    end
-
-    subgraph Future["Dynamic Workflow"]
-        F1[Configurable RAG index]
-        F2[Optional ML slot]
-        F3[Category prompts & SOPs]
-    end
-
-    D --> Traffic
-    E --> MRP
-    F --> Refund
-    G --> Future
-
-    Traffic & MRP & Refund & Future --> H[User Input Layer]
+**Frontend (`frontend/.env.local`):**
+```env
+NEXTAUTH_SECRET=generate_a_random_secret_string
+GOOGLE_CLIENT_ID=your_google_oauth_client_id
+GOOGLE_CLIENT_SECRET=your_google_oauth_client_secret
+DATABASE_URL=postgresql://postgres:password@localhost:5432/justiceai
 ```
 
-| Workflow | Knowledge base | ML (when needed) |
-|----------|----------------|------------------|
-| Traffic | Motor Vehicles Act, challan rules, case laws, fine tables | Challan validity / suspicion model |
-| MRP | Legal Metrology Act, MRP rulings, consumer cases | Complaint category model |
-| Refund | Consumer Protection Act, e-commerce rules, refund judgments | Dispute type model |
-| Dynamic (+N) | Plug-in acts, rules, templates per new category | Optional per category config |
+### 2. Database Setup
+Create a PostgreSQL database named `justiceai`:
+```bash
+createdb -U postgres justiceai
+```
+*(The users table will be automatically generated upon the first login attempt).*
 
----
-
-## 3–4. User input & document processing
-
-```mermaid
-flowchart TD
-    H[User Input Layer] --> I{Document Uploaded?}
-
-    I -->|Yes| J[OCR + Text Extraction]
-    I -->|No| K[Direct Text Input]
-
-    J --> L[Metadata Extraction]
-    K --> L
-
-    subgraph Input["User Input Layer — inputs"]
-        U1[Natural language issue]
-        U2[Bill / challan / screenshot upload]
-        U3[Optional location / state]
-    end
-
-    U1 --> K
-    U2 --> J
-    U3 --> L
+### 3. Run the Backend
+```bash
+cd backend
+python -m venv venv
+# Windows: venv\Scripts\activate | Mac/Linux: source venv/bin/activate
+pip install -r requirements.txt
+python -m uvicorn main:app --port 8000 --reload
 ```
 
-**Metadata extracted:** offence type, amount, date, merchant/platform, state, and other category-specific fields.
-
-**Example:** *“I got ₹2000 challan for no helmet but I was wearing one”*
-
----
-
-## 5–7. ML, RAG & LLM reasoning engine
-
-ML runs only when the workflow defines it (`ML Module Needed?`).
-
-```mermaid
-flowchart TD
-    L[Metadata Extraction] --> M{ML Module Needed?}
-
-    M -->|Yes| N[Category-specific ML Model]
-    M -->|No| O[Skip ML Layer]
-
-    N --> P[Category-specific RAG Retrieval]
-    O --> P
-
-    P --> Q[LLM Reasoning Engine]
-    Q --> R[Legal Guidance + Action Steps]
-```
-
-```mermaid
-sequenceDiagram
-    participant L as Metadata Extraction
-    participant ML as Category-specific ML Model
-    participant RAG as Category-specific RAG Retrieval
-    participant LLM as LLM Reasoning Engine
-    participant OUT as Legal Guidance + Action Steps
-
-    L->>ML: Text + metadata (if ML enabled)
-    ML-->>LLM: Category signals, confidence, flags
-    L->>RAG: Category-scoped query
-    RAG-->>LLM: Laws, sections, cases, SOPs, templates
-    LLM->>OUT: Explanation, law refs, action steps, disclaimers
-```
-
-**ML example output (Traffic):**
-
-```txt
-Category: Traffic
-Confidence: 92%
-Possible Wrong Fine: Yes
-```
-
----
-
-## 8–9. Legal guidance & complaint generator
-
-```mermaid
-flowchart TD
-    Q[LLM Reasoning Engine] --> R[Legal Guidance + Action Steps]
-
-    R --> R1[Plain-language explanation]
-    R --> R2[Relevant law sections]
-    R --> R3[Confidence / disclaimer]
-    R --> R4[Step-by-step actions]
-
-    R --> S{Generate Complaint?}
-
-    S -->|Yes| T[Complaint Generator V1 Lite]
-    S -->|No| U[End]
-
-    T --> T1[Email draft]
-    T --> T2[Grievance portal text]
-    T --> T3[Legal notice draft lite]
-    T1 & T2 & T3 --> U
-```
-
-**Example output:**
-
-```txt
-This challan may be disputable because...
-Relevant Section: [Act / Section]
-Recommended Action:
-1. File dispute on Parivahan
-2. Attach helmet proof
-3. Escalate if rejected
-```
-
----
-
-## V1 architecture summary
-
-```mermaid
-flowchart TB
-    FE[Frontend — Next.js] --> API[API Backend — FastAPI]
-    API --> WF[Load Category Workflow]
-    WF --> IN[User Input Layer]
-    IN --> DOC{Document Uploaded?}
-    DOC -->|Yes| OCR[OCR + Text Extraction]
-    DOC -->|No| TXT[Direct Text Input]
-    OCR --> META[Metadata Extraction]
-    TXT --> META
-    META --> MLQ{ML Module Needed?}
-    MLQ -->|Yes| ML[Category-specific ML Model]
-    MLQ -->|No| SKIP[Skip ML Layer]
-    ML --> RAG[Category-specific RAG Retrieval]
-    SKIP --> RAG
-    RAG --> LLM[LLM Reasoning Engine]
-    LLM --> OUT[Legal Guidance + Action Steps]
-    OUT --> CG{Generate Complaint?}
-    CG -->|Yes| CMP[Complaint Generator V1 Lite]
-    CG -->|No| END[End]
-    CMP --> END
-```
-
-### Component responsibilities
-
-| Layer | Technology (planned) | Responsibility |
-|-------|----------------------|----------------|
-| Frontend | Next.js | Landing page, category selection, workflow routing, uploads, complaint export |
-| API | FastAPI | Load category workflow, auth, orchestration, rate limits |
-| OCR + text extraction | Tesseract / cloud OCR + rules | Document → text when upload present |
-| Metadata extraction | Rules + parsers | Offence, amount, date, merchant, state, etc. |
-| ML (optional) | Per-category lightweight models | Run only when `ML Module Needed?` is true |
-| RAG | Per-category vector DB + embeddings | Category-specific RAG retrieval |
-| LLM | Hosted or self-hosted LLM | LLM reasoning engine → legal guidance + action steps |
-| Complaint generator | Prompt templates | Complaint Generator V1 Lite (email, grievance, notice) |
-
----
-
-## Out of scope for V1
-
-V1 does **not** include:
-
-- Multi-agent orchestration
-- Autonomous tool-calling workflows
-- Long-running agent chains
-
-Design principle for V1:
-
-> **Deterministic + reliable** — predictable pipeline per category.
-
-Agent-based automation is planned for **V2/V3**.
-
----
-
-## Frontend (landing page)
-
-Dark-themed marketing UI lives in `frontend/` (Next.js 16 + React 19 + Tailwind CSS 4).
-
+### 4. Run the Frontend
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
-
-Open [http://localhost:3000](http://localhost:3000) for the Justice AI landing page.
-
----
-
-## Repository
-
-This repository hosts the **Justice AI / Layer AI** project documentation and implementation. The remote is:
-
-[https://github.com/SudhanshuBiswas01/Justice-AI](https://github.com/SudhanshuBiswas01/Justice-AI)
+The application will be available at `http://localhost:3000`.
 
 ---
-
-## License
-
-To be determined.
+<div align="center">
+  <i>Built to bridge the justice gap in India.</i>
+</div>
