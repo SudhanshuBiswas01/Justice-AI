@@ -1,6 +1,19 @@
 <div align="center">
   <h1>⚖️ Justice AI</h1>
-  <p><strong>AI-powered Legal Assistance SaaS for Indian Consumer & Traffic Disputes</strong></p>
+
+  <p>
+    <a href="https://readme-typing-svg.demolab.com">
+      <img src="https://readme-typing-svg.demolab.com?font=Inter&weight=600&size=18&pause=1000&color=3B82F6&center=true&vCenter=true&width=500&lines=AI-powered+Legal+Assistance+SaaS;Resolving+Consumer+%26+Traffic+Disputes;Democratizing+Legal+Access+in+India" alt="Typing Animated Text" />
+    </a>
+  </p>
+
+  <p>
+    <img src="https://img.shields.io/badge/version-v0.5-blue.svg?style=for-the-badge" alt="Version">
+    <img src="https://img.shields.io/badge/Python-FastAPI-yellow.svg?style=for-the-badge&logo=python&logoColor=white" alt="Python">
+    <img src="https://img.shields.io/badge/Next.js-React-black.svg?style=for-the-badge&logo=next.js" alt="Next.js">
+    <img src="https://img.shields.io/badge/Gemini-Vertex%20AI-10b981.svg?style=for-the-badge" alt="Gemini">
+    <img src="https://img.shields.io/badge/PostgreSQL-SQLite-4169e1.svg?style=for-the-badge&logo=postgresql&logoColor=white" alt="Database">
+  </p>
   <p>
     <a href="#project-overview">Overview</a> •
     <a href="#core-features">Features</a> •
