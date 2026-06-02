@@ -2,10 +2,13 @@
 
 import { useState, useRef, useEffect } from "react";
 import { ChatMessage } from "./ChatMessage";
+import { FileUploadPreview } from "./FileUploadPreview";
 
 interface Message {
   role: "user" | "assistant" | "system";
   content: string;
+  ocrResult?: any;
+  fileName?: string;
 }
 
 export function ChatWindow() {
@@ -22,6 +25,90 @@ export function ChatWindow() {
   const startTimeRef = useRef<number>(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // ── OCR & Attachment States ────────────────────────────────────────────────
+  const [file, setFile] = useState<File | null>(null);
+  const [fileName, setFileName] = useState("");
+  const [fileSize, setFileSize] = useState(0);
+  const [ocrStatus, setOcrStatus] = useState<"idle" | "uploading" | "ready" | "error">("idle");
+  const [ocrErrorMessage, setOcrErrorMessage] = useState<string | null>(null);
+  const [ocrResult, setOcrResult] = useState<any | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileSelect = async (selectedFile: File) => {
+    const allowedExtensions = [".pdf", ".jpg", ".jpeg", ".png", ".webp"];
+    const ext = selectedFile.name.substring(selectedFile.name.lastIndexOf(".")).toLowerCase();
+    
+    if (!allowedExtensions.includes(ext)) {
+      setFileName(selectedFile.name);
+      setFileSize(selectedFile.size);
+      setOcrStatus("error");
+      setOcrErrorMessage("Unsupported file type. Only PDF and images (JPG, PNG, WEBP) are supported.");
+      return;
+    }
+
+    setFile(selectedFile);
+    setFileName(selectedFile.name);
+    setFileSize(selectedFile.size);
+    setOcrStatus("uploading");
+    setOcrErrorMessage(null);
+    setOcrResult(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+
+      const response = await fetch("/api/ocr", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || "Failed to extract text from document.");
+      }
+
+      const data = await response.json();
+      setOcrResult(data);
+      setOcrStatus("ready");
+    } catch (err: any) {
+      console.error("OCR Extraction Error:", err);
+      setOcrStatus("error");
+      setOcrErrorMessage(err.message || "An unexpected error occurred during OCR extraction.");
+    }
+  };
+
+  const handleRemoveFile = () => {
+    setFile(null);
+    setFileName("");
+    setFileSize(0);
+    setOcrStatus("idle");
+    setOcrErrorMessage(null);
+    setOcrResult(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleFileSelect(e.dataTransfer.files[0]);
+    }
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -52,23 +139,60 @@ export function ChatWindow() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || isLoading) return;
+    const hasOcr = ocrStatus === "ready" && ocrResult;
+    if ((!input.trim() && !hasOcr) || isLoading || ocrStatus === "uploading") return;
 
-    const userMessage: Message = { role: "user", content: input };
-    const newMessages = [...messages, userMessage];
+    // Display clean query in UI bubble, or describe the file analyzed
+    const queryText = input.trim() || `Analyze my uploaded ${ocrResult?.metadata?.document_type || "document"}`;
+
+    const userMessage: Message = {
+      role: "user",
+      content: queryText,
+      ocrResult: hasOcr ? ocrResult : undefined,
+      fileName: hasOcr ? fileName : undefined
+    };
     
+    // Construct content with injected context to feed to RAG/LLM backend
+    let backendContent = queryText;
+    if (hasOcr) {
+      const meta = ocrResult.metadata;
+      backendContent = `${queryText}\n\n[Extracted Document Context]\nDocument Category: ${meta.document_category || "N/A"}\nDocument Type: ${meta.document_type || "N/A"}\nAmount: ${meta.fine_amount || "N/A"}\nChallan/Order Number: ${meta.challan_number || "N/A"}\nDate: ${meta.date || "N/A"}\nLocation: ${meta.location || "N/A"}\nVehicle Number: ${meta.vehicle_number || "N/A"}\nOffence/Violation: ${meta.offence_type || "N/A"}\nMerchant/Company: ${meta.merchant_name || "N/A"}\nProduct/Service: ${meta.product_service || "N/A"}\nSummary: ${meta.summary || "N/A"}\n\nRaw Extracted Document Text:\n${ocrResult.extracted_text}`;
+    }
+
+    const newMessages = [...messages, userMessage];
     setMessages(newMessages);
     setInput("");
     setIsLoading(true);
     setLastLatency(null);
 
+    // Clear file selection state
+    setFile(null);
+    setFileName("");
+    setFileSize(0);
+    setOcrStatus("idle");
+    setOcrErrorMessage(null);
+    setOcrResult(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+
     try {
+      // Map existing messages correctly: for past messages that had ocrResult,
+      // map their content to the backend text representation.
+      const backendMessages = messages.map(m => ({
+        role: m.role,
+        content: m.ocrResult
+          ? `${m.content}\n\n[Extracted Document Context]\nCategory: ${m.ocrResult.metadata.document_category}\nType: ${m.ocrResult.metadata.document_type}\nAmount: ${m.ocrResult.metadata.fine_amount || "N/A"}\nDate: ${m.ocrResult.metadata.date || "N/A"}\nLocation: ${m.ocrResult.metadata.location || "N/A"}\nVehicle: ${m.ocrResult.metadata.vehicle_number || "N/A"}\nOffence: ${m.ocrResult.metadata.offence_type || "N/A"}\nMerchant: ${m.ocrResult.metadata.merchant_name || "N/A"}\n\nRaw text:\n${m.ocrResult.extracted_text}`
+          : m.content
+      }));
+      backendMessages.push({ role: "user", content: backendContent });
+
       const response = await fetch("http://localhost:8000/api/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ messages: newMessages }),
+        body: JSON.stringify({ messages: backendMessages }),
       });
 
       if (!response.ok) {
@@ -108,12 +232,39 @@ export function ChatWindow() {
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#030308]/50">
+    <div 
+      className="flex flex-col h-full bg-[#030308]/50 relative"
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {/* Drag & Drop Glassmorphic Overlay */}
+      {isDragging && (
+        <div className="absolute inset-0 bg-[#030308]/85 backdrop-blur-md border-2 border-dashed border-cyan-500/40 rounded-2xl z-50 flex flex-col items-center justify-center gap-4 text-center p-6 transition-all animate-fade-in pointer-events-none">
+          <div className="p-5 rounded-2xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 animate-pulse">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-12 h-12">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
+            </svg>
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-white">Drop your legal document</h3>
+            <p className="text-sm text-zinc-400 max-w-sm mt-1">
+              Drop your Challan, Receipt, Bill, Invoice or PDF here to automatically extract and analyze text & details.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar">
         {messages.map((msg, index) => (
           <div key={index}>
-            <ChatMessage role={msg.role} content={msg.content} />
+            <ChatMessage 
+              role={msg.role} 
+              content={msg.content} 
+              ocrResult={msg.ocrResult}
+              fileName={msg.fileName}
+            />
             {/* Show latency badge after the last assistant message */}
             {!isLoading && lastLatency !== null && index === messages.length - 1 && msg.role === "assistant" && (
               <div className="flex justify-start mb-4 -mt-4 ml-1">
@@ -146,26 +297,63 @@ export function ChatWindow() {
 
       {/* Input Area */}
       <div className="p-4 border-t border-white/10 bg-[#030308]/80 backdrop-blur-md">
-        <form onSubmit={handleSubmit} className="relative flex items-end gap-2 max-w-4xl mx-auto">
-          <div className="relative flex-1">
-            <textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Describe your legal issue..."
-              className="w-full resize-none rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-zinc-500 focus:border-cyan-500/50 focus:outline-none focus:ring-1 focus:ring-cyan-500/50 min-h-[52px] max-h-32 overflow-y-auto custom-scrollbar"
-              rows={1}
+        <form onSubmit={handleSubmit} className="relative flex flex-col gap-2 max-w-4xl mx-auto">
+          {/* File Upload Preview */}
+          {ocrStatus !== "idle" && (
+            <FileUploadPreview
+              fileName={fileName}
+              fileSize={fileSize}
+              status={ocrStatus}
+              errorMessage={ocrErrorMessage}
+              onRemove={handleRemoveFile}
+              metadata={ocrResult?.metadata}
             />
+          )}
+
+          <div className="flex items-end gap-2 w-full">
+            {/* Hidden file input */}
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
+              accept=".pdf,.jpg,.jpeg,.png,.webp"
+              className="hidden"
+            />
+
+            {/* Paperclip/Attachment Button */}
+            <button
+              type="button"
+              disabled={isLoading || ocrStatus === "uploading"}
+              onClick={() => fileInputRef.current?.click()}
+              className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-zinc-400 hover:text-white hover:bg-white/10 hover:border-cyan-500/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              title="Upload legal document (Challan, Bill, Receipt, PDF)"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
+              </svg>
+            </button>
+
+            <div className="relative flex-1">
+              <textarea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Describe your legal issue or upload a document..."
+                className="w-full resize-none rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-zinc-500 focus:border-cyan-500/50 focus:outline-none focus:ring-1 focus:ring-cyan-500/50 min-h-[52px] max-h-32 overflow-y-auto custom-scrollbar"
+                rows={1}
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={isLoading || ocrStatus === "uploading" || (!input.trim() && ocrStatus !== "ready")}
+              className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-violet-500 text-white shadow-lg shadow-cyan-500/20 transition-all hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 ml-1">
+                <path d="M3.478 2.404a.75.75 0 0 0-.926.941l2.432 7.905H13.5a.75.75 0 0 1 0 1.5H4.984l-2.432 7.905a.75.75 0 0 0 .926.94 60.519 60.519 0 0 0 18.445-8.986.75.75 0 0 0 0-1.218A60.517 60.517 0 0 0 3.478 2.404Z" />
+              </svg>
+            </button>
           </div>
-          <button
-            type="submit"
-            disabled={isLoading || !input.trim()}
-            className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-violet-500 text-white shadow-lg shadow-cyan-500/20 transition-all hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 ml-1">
-              <path d="M3.478 2.404a.75.75 0 0 0-.926.941l2.432 7.905H13.5a.75.75 0 0 1 0 1.5H4.984l-2.432 7.905a.75.75 0 0 0 .926.94 60.519 60.519 0 0 0 18.445-8.986.75.75 0 0 0 0-1.218A60.517 60.517 0 0 0 3.478 2.404Z" />
-            </svg>
-          </button>
         </form>
         <p className="text-center text-[10px] text-zinc-500 mt-2">
           Justice AI can make mistakes. Consider verifying important legal information.
@@ -173,4 +361,5 @@ export function ChatWindow() {
       </div>
     </div>
   );
+
 }

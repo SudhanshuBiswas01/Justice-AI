@@ -3,18 +3,32 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+import { OcrResultCard } from "./OcrResultCard";
+
 interface ChatMessageProps {
   role: "user" | "assistant" | "system";
   content: string;
+  ocrResult?: any;
+  fileName?: string;
 }
 
-export function ChatMessage({ role, content }: ChatMessageProps) {
+export function ChatMessage({ role, content, ocrResult, fileName }: ChatMessageProps) {
   const isUser = role === "user";
   
   if (role === "system") return null;
 
   return (
-    <div className={`flex w-full mb-6 ${isUser ? "justify-end" : "justify-start"}`}>
+    <div className={`flex flex-col w-full mb-6 ${isUser ? "items-end" : "items-start"}`}>
+      {/* OCR Result Card rendered inline above the message bubble for users */}
+      {isUser && ocrResult && (
+        <div className="max-w-[85%] sm:max-w-[75%] w-full mb-2">
+          <OcrResultCard
+            metadata={ocrResult.metadata}
+            rawText={ocrResult.extracted_text}
+            fileName={fileName}
+          />
+        </div>
+      )}
       <div 
         className={`max-w-[85%] sm:max-w-[75%] rounded-2xl px-5 py-4 ${
           isUser 
