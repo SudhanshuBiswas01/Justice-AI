@@ -8,7 +8,7 @@
   </p>
 
   <p>
-    <img src="https://img.shields.io/badge/version-v0.5-blue.svg?style=for-the-badge" alt="Version">
+    <img src="https://img.shields.io/badge/version-v1.0-green.svg?style=for-the-badge" alt="Version">
     <img src="https://img.shields.io/badge/Python-FastAPI-yellow.svg?style=for-the-badge&logo=python&logoColor=white" alt="Python">
     <img src="https://img.shields.io/badge/Next.js-React-black.svg?style=for-the-badge&logo=next.js" alt="Next.js">
     <img src="https://img.shields.io/badge/Gemini-Vertex%20AI-10b981.svg?style=for-the-badge" alt="Gemini">
@@ -40,26 +40,29 @@ To act as the **first layer of defense** for the everyday consumer. By combining
 
 ## 🚀 2. Current Status
 
-**Current Version:** `V0.5` ➡️ **Road to V1**
+**Current Version:** `V1.0` (Production Ready)
 
-* ✅ **RAG Chatbot:** Fully functional streaming legal guidance utilizing Vertex AI and CRAG.
+* ✅ **RAG Chatbot:** Fully functional streaming legal guidance utilizing Vertex AI and optimized Simple RAG pipelines.
 * ✅ **Auth Integration:** PostgreSQL-backed NextAuth with Google OAuth & Email/Password in place.
 * ✅ **Data Pipeline:** Scalable scraping & vector embedding ingestion for Indian legal texts.
-* 🚧 **OCR Uploads:** In progress (extracting text from challans/bills).
-* 🚧 **Complaint Generation:** Planned for V1.
+* ✅ **OCR Upload Pipeline:** Production-ready extraction of text and metadata from challans, invoices, and receipts utilizing Gemini 2.0 Vision.
+* ✅ **Hands-free Voice AI**: Integrated Google Cloud STT/TTS proxy for real-time bilingual (Hindi/English) legal consultation.
+* 🚧 **Complaint Generation:** Planned for V1.1/V2.
 
 ---
 
 ## ✨ 3. Core Features
 
 * 🗂️ **Category-Based Workflows:** Specialized pipelines for distinct legal categories:
-  * 🚦 **Traffic Challan Disputes**
-  * 🏷️ **MRP Overcharging Claims**
+  * 🚦 **Traffic Challan Disputes** (OCR integrated)
+  * 🏷️ **MRP Overcharging Claims** (Invoice/Bill OCR integrated)
   * 🛒 **E-Commerce & Refund Disputes**
 * 🧠 **Legal Document Retrieval:** Semantically searches a curated corpus of Indian acts, rules, and judgements.
 * 🔒 **Google Authentication & Secure Sessions:** Built on NextAuth.js and PostgreSQL.
 * ⚡ **Streaming AI Responses:** Instant, ultra-low latency response streaming directly to the UI.
-* 💼 **SaaS-Style Dashboard:** Modern, dark-mode, minimal SaaS interface built for accessibility and trust.
+* 🎙️ **Real-time Bilingual Voice AI**: Full Speech-to-Text and Text-to-Speech loops supporting natural Indian English (`en-IN-Neural2-B`) and Hindi/Hinglish (`hi-IN-Neural2-C`).
+* 📁 **OCR-Driven Document Ingestion**: Upload traffic challans or commercial invoices for automated text extraction (via Gemini 2.0 Vision) and LLM-backed metadata parsing (fine amount, vehicle number, merchant details).
+* 💼 **SaaS-Style Dashboard**: Modern, dark-mode, minimal SaaS interface built for accessibility and trust.
 * 📝 **AI-Generated Complaint Drafts:** (Upcoming) Automated drafting of legal notices tailored for the National Consumer Helpline (NCH) or eDaakhil.
 
 ---
@@ -77,6 +80,8 @@ graph TD
 
     subgraph "Frontend (Next.js)"
         UI[User Interface]:::frontend
+        VoiceOrb[Voice AI Controller]:::frontend
+        OCRUpload[OCR Document Upload]:::frontend
         AuthClient[NextAuth.js Client]:::frontend
     end
 
@@ -84,6 +89,9 @@ graph TD
         API[API Gateway/Router]:::backend
         RAG[RAG Pipeline Engine]:::backend
         AuthAPI[Auth Middleware]:::backend
+        OCRService[OCR Service - Gemini Vision]:::backend
+        MetaParser[Metadata Parser]:::backend
+        VoiceRouter[Voice Router - STT/TTS]:::backend
         Scraper[Legal Scraper/Ingestion]:::backend
     end
 
@@ -94,6 +102,8 @@ graph TD
 
     subgraph "AI & External Providers"
         Vertex[Vertex AI / Gemini 2.5]:::llm
+        GeminiVision[Gemini 2.0 Vision OCR]:::llm
+        GCPVoice[Google Cloud STT/TTS]:::llm
         Embed[Embedding Models]:::llm
         Groq[Groq API / Llama 3.3]:::llm
         OAuth[Google OAuth]:::external
@@ -104,9 +114,20 @@ graph TD
     UI -->|Auth Flow| AuthClient
     AuthClient <-->|Token Exchange| OAuth
     AuthClient -->|Persist Users| PG
+
+    OCRUpload -->|Upload Image/PDF| API
+    VoiceOrb -->|Stream Audio/Speech| API
     
     API --> AuthAPI
     AuthAPI --> RAG
+    
+    API --> OCRService
+    OCRService -->|Vision Analysis| GeminiVision
+    OCRService --> MetaParser
+    MetaParser -->|Structured JSON| RAG
+    
+    API --> VoiceRouter
+    VoiceRouter <-->|Transcribe & Synthesize| GCPVoice
     
     RAG -->|Semantic Search| SQLite
     RAG <-->|Stream Response| Vertex
@@ -140,11 +161,14 @@ Our AI stack is designed with built-in redundancies, ensuring maximum uptime and
 * **Primary Reasoning LLM:** `gemini-2.5-flash` via **Google Cloud Vertex AI** (GCP ADC authentication).
 * **Primary Fallback:** Google AI Studio API (`gemini-2.5-flash`).
 * **Secondary Fallback:** Groq Cloud API (`llama-3.3-70b-versatile`).
+* **OCR Document Engine:** `gemini-2.0-flash` (via Vertex AI / AI Studio) for end-to-end vision-based transcription of legal papers and invoices.
+* **Speech-to-Text (STT):** Google Cloud Speech-to-Text API supporting native `WEBM_OPUS` decoding with dynamic sample rate inference from container headers.
+* **Text-to-Speech (TTS):** Google Cloud Text-to-Speech API with premium Neural2 Indian voices (`en-IN-Neural2-B` and `hi-IN-Neural2-C`).
 * **Embedding Models:** 
   * Primary: Google `text-embedding-004` (768 dimensions).
   * Fallback: OpenAI `text-embedding-3-small` (1536 dimensions).
   * Offline Fallback: Custom deterministic Token-Hashing Bag-of-Words (384 dimensions) with query expansion.
-* **Metadata Extraction (Scraper Pipeline):** `llama-3.3-70b-versatile` (via Groq) is used to heuristically structure scraped legal text into distinct schema fields (Act, Year, Sections, Summary).
+* **Metadata Extraction (Scraper & OCR Pipeline):** LLMs (specifically `llama-3.3-70b-versatile` via Groq, or Gemini models) are used to heuristically structure scraped legal texts and OCR outputs into standardized schema fields (Act, Year, Sections, Fine Amount, Offence Type, Merchant).
 
 ---
 
@@ -203,8 +227,9 @@ Building a deterministic legal AI is hard. Key challenges included:
 
 ## 🔮 11. Future Roadmap
 
-- [ ] **OCR Uploads:** Allow users to upload traffic challans or invoices for automated parsing.
-- [ ] **Complaint Generator:** Auto-fill standardized legal notices and NCH complaint formats.
+- [x] **OCR Uploads:** Allow users to upload traffic challans or invoices for automated parsing.
+- [x] **Voice AI Integration:** Real-time bilingual vocal consultation with the RAG chatbot.
+- [ ] **Complaint Generator:** Auto-fill standardized legal notices and NCH complaint formats (eDaakhil).
 - [ ] **Case Success Prediction:** Use ML models to estimate the probability of winning based on historical judgements.
 - [ ] **Agentic Workflows:** Multi-agent collaboration (e.g., a "Researcher" agent passing data to a "Drafter" agent).
 - [ ] **Deployment:** Containerize via Docker and deploy to AWS/GCP with scalable vector infrastructure (Pinecone/Milvus).

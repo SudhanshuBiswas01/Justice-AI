@@ -117,6 +117,43 @@ export default async function AppDashboard() {
             ))}
           </div>
 
+          {/* Nyay Voice AI Card */}
+          <Link
+            href="/app/voice"
+            className="group relative mb-8 flex flex-col sm:flex-row items-center gap-6 rounded-2xl border border-white/8 bg-gradient-to-br from-indigo-500/10 via-violet-500/5 to-cyan-500/5 p-6 transition-all duration-300 hover:border-violet-500/40 hover:shadow-xl hover:shadow-violet-500/5 cursor-pointer overflow-hidden"
+          >
+            {/* Ambient background glow */}
+            <div className="pointer-events-none absolute -right-10 -bottom-10 h-40 w-40 rounded-full bg-violet-500/10 blur-2xl group-hover:bg-violet-500/20 transition-all duration-500" />
+            
+            <div className="relative flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-violet-500/20 bg-violet-500/10 text-violet-400 group-hover:text-cyan-400 group-hover:border-cyan-500/30 transition-all duration-300">
+              <span className="absolute inset-0 rounded-2xl bg-violet-500/5 animate-pulse-glow" />
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8 relative z-10 transition-transform group-hover:scale-110">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z" />
+              </svg>
+            </div>
+
+            <div className="flex-1 text-center sm:text-left relative z-10">
+              <div className="flex items-center gap-2 mb-1 justify-center sm:justify-start">
+                <h2 className="text-base font-semibold text-white group-hover:text-cyan-300 transition-colors">
+                  Nyay Voice AI — Premium Legal Voice Assistant
+                </h2>
+                <span className="rounded-full border border-cyan-400/25 bg-cyan-400/10 px-2 py-0.5 text-[9px] font-bold text-cyan-300 uppercase tracking-wide animate-pulse">
+                  New
+                </span>
+              </div>
+              <p className="text-xs sm:text-sm text-zinc-500 leading-relaxed group-hover:text-zinc-400 transition-colors max-w-2xl">
+                Experience natural legal consulting. Talk to Justice AI, listen to real-time laws & regulations retrieval, and get synthesized spoken responses in Hindi and English.
+              </p>
+            </div>
+
+            <div className="shrink-0 flex items-center gap-1.5 text-xs font-semibold text-zinc-500 group-hover:text-white transition-colors bg-white/5 border border-white/5 rounded-xl px-4 py-2.5 hover:bg-white/10 relative z-10">
+              Start Voice Chat
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 transition-transform group-hover:translate-x-1">
+                <path fillRule="evenodd" d="M3 10a.75.75 0 0 1 .75-.75h10.638L10.23 5.29a.75.75 0 1 1 1.04-1.08l5.5 5.25a.75.75 0 0 1 0 1.08l-5.5 5.25a.75.75 0 1 1-1.04-1.08l4.158-3.96H3.75A.75.75 0 0 1 3 10Z" clipRule="evenodd" />
+              </svg>
+            </div>
+          </Link>
+
           {/* Quick-start CTA */}
           <div className="rounded-2xl border border-white/8 bg-white/3 p-6 flex flex-col sm:flex-row items-start sm:items-center gap-4 justify-between">
             <div>
