@@ -16,7 +16,7 @@ app.add_middleware(
 app.include_router(chat.router, prefix="/api")
 app.include_router(scraper.router, prefix="/api")
 app.include_router(ocr.router, prefix="/api")
-app.include_router(voice.router, prefix="/api")
+app.include_router(voice.router, prefix="/api/voice")
 
 
 @app.get("/")

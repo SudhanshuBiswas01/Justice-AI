@@ -277,6 +277,8 @@ You will need two environment files.
 GEMINI_API_KEY=your_gemini_key
 GROQ_API_KEY=your_groq_key
 # Or use GCP Application Default Credentials via `gcloud auth application-default login`
+# Make sure to enable Speech-to-Text and Text-to-Speech APIs:
+# gcloud services enable speech.googleapis.com texttospeech.googleapis.com
 ```
 
 **Frontend (`frontend/.env.local`):**
