@@ -46,14 +46,23 @@ export function VoiceSession() {
     }
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          channelCount: 1, // Mono audio is required for accurate STT
+          echoCancellation: true,
+          noiseSuppression: true,
+        } 
+      });
 
       // Determine supported mime type
-      let options = { mimeType: "audio/webm" };
-      if (!MediaRecorder.isTypeSupported("audio/webm")) {
-        options = { mimeType: "audio/ogg" };
+      let options = { mimeType: "audio/webm;codecs=opus" };
+      if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+        options = { mimeType: "audio/webm" };
       }
-      if (!MediaRecorder.isTypeSupported("audio/ogg")) {
+      if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+        options = { mimeType: "audio/ogg;codecs=opus" };
+      }
+      if (!MediaRecorder.isTypeSupported(options.mimeType)) {
         options = { mimeType: "" }; // default fallback
       }
 
@@ -73,10 +82,19 @@ export function VoiceSession() {
         const audioBlob = new Blob(audioChunksRef.current, {
           type: mediaRecorder.mimeType || "audio/webm",
         });
+
+        // Guard: reject blobs that are too small to contain real speech
+        // (< 1 KB almost certainly means silence or a near-instant tap)
+        if (audioBlob.size < 1000) {
+          setErrorMsg("Recording too short. Hold the button and speak before releasing.");
+          setState("idle");
+          return;
+        }
+
         await handleAudioCaptured(audioBlob);
       };
 
-      mediaRecorder.start(250); // collect audio chunks every 250ms
+      mediaRecorder.start(); // collect audio as a single chunk for proper WebM headers
       setState("listening");
     } catch (err: unknown) {
       console.error("Error accessing microphone:", err);

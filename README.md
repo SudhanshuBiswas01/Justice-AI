@@ -162,7 +162,8 @@ Our AI stack is designed with built-in redundancies, ensuring maximum uptime and
 * **Primary Fallback:** Google AI Studio API (`gemini-2.5-flash`).
 * **Secondary Fallback:** Groq Cloud API (`llama-3.3-70b-versatile`).
 * **OCR Document Engine:** `gemini-2.0-flash` (via Vertex AI / AI Studio) for end-to-end vision-based transcription of legal papers and invoices.
-* **Speech-to-Text (STT):** Google Cloud Speech-to-Text API supporting native `WEBM_OPUS` decoding with dynamic sample rate inference from container headers.
+* **Speech-to-Text (STT):** Google Cloud Speech-to-Text API utilizing `streaming_recognize` with a configured 48,000 Hz sample rate. This configuration bypasses the Chrome `MediaRecorder` bug (where missing duration headers cause synchronous recognize requests to return empty transcripts) and ensures accurate transcription from WebM/Opus streams.
+* **Audio Capture Enhancements:** Advanced browser audio capture settings requesting mono audio, echo cancellation, noise suppression, and a safeguard rejecting recordings under 1 KB to prevent empty transcripts.
 * **Text-to-Speech (TTS):** Google Cloud Text-to-Speech API with premium Neural2 Indian voices (`en-IN-Neural2-B` and `hi-IN-Neural2-C`).
 * **Embedding Models:** 
   * Primary: Google `text-embedding-004` (768 dimensions).

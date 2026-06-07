@@ -30,6 +30,7 @@ async def speech_to_text(file: UploadFile = File(...), language: str = "en-IN"):
         
     try:
         content = await file.read()
+        print(f"[Backend STT] Received file: {file.filename}, Content-Type: {file.content_type}, Size: {len(content)} bytes, Language: {language}")
         
         # Determine standard encoding and sample rate
         # Chrome/Firefox MediaRecorder output is typically WebM/Opus.
@@ -51,20 +52,34 @@ async def speech_to_text(file: UploadFile = File(...), language: str = "en-IN"):
             "enable_automatic_punctuation": True
         }
         
-        # WEBM_OPUS sample rate is inferred from the file header; providing a mismatched one causes errors.
-        if encoding != speech.RecognitionConfig.AudioEncoding.WEBM_OPUS:
-            config_kwargs["sample_rate_hertz"] = sample_rate
+        # NOTE: The streaming_recognize API CANNOT auto-detect Opus sample rate from
+        # WebM container headers (unlike the synchronous recognize API).
+        # We must always provide sample_rate_hertz explicitly for streaming.
+        # Chrome/Firefox MediaRecorder always encodes Opus at 48000 Hz.
+        config_kwargs["sample_rate_hertz"] = sample_rate
             
         config = speech.RecognitionConfig(**config_kwargs)
         
-        audio = speech.RecognitionAudio(content=content)
+        # Use StreamingRecognize to bypass Chrome's missing WebM duration header bug
+        # which causes the synchronous recognize() to return empty results.
+        streaming_config = speech.StreamingRecognitionConfig(
+            config=config,
+            single_utterance=False
+        )
         
-        response = speech_client.recognize(config=config, audio=audio)
+        # We can send the entire content in a single chunk
+        requests = [speech.StreamingRecognizeRequest(audio_content=content)]
+        
+        responses = speech_client.streaming_recognize(
+            config=streaming_config, 
+            requests=requests
+        )
         
         transcript = ""
-        for result in response.results:
-            transcript += result.alternatives[0].transcript + " "
-            
+        for response in responses:
+            for result in response.results:
+                transcript += result.alternatives[0].transcript + " "
+                
         return {"transcript": transcript.strip()}
         
     except Exception as e:
