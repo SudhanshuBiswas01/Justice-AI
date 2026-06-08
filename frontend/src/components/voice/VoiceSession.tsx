@@ -1,8 +1,40 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { VoiceOrb } from "./VoiceOrb";
 import Link from "next/link";
+
+// TypeScript declarations for the Web Speech API
+interface SpeechRecognitionEvent extends Event {
+  results: SpeechRecognitionResultList;
+  resultIndex: number;
+}
+
+interface SpeechRecognitionErrorEvent extends Event {
+  error: string;
+  message?: string;
+}
+
+interface SpeechRecognitionInstance extends EventTarget {
+  lang: string;
+  interimResults: boolean;
+  continuous: boolean;
+  maxAlternatives: number;
+  start(): void;
+  stop(): void;
+  abort(): void;
+  onresult: ((event: SpeechRecognitionEvent) => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
+  onend: (() => void) | null;
+  onspeechend: (() => void) | null;
+}
+
+declare global {
+  interface Window {
+    SpeechRecognition?: new () => SpeechRecognitionInstance;
+    webkitSpeechRecognition?: new () => SpeechRecognitionInstance;
+  }
+}
 
 interface Message {
   role: "user" | "assistant";
@@ -14,11 +46,20 @@ export function VoiceSession() {
   const [language, setLanguage] = useState<"en-IN" | "hi-IN">("en-IN");
   const [messages, setMessages] = useState<Message[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [interimText, setInterimText] = useState<string>("");
 
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
+  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const transcriptEndRef = useRef<HTMLDivElement>(null);
+  const finalTranscriptRef = useRef<string>("");
+
+  // Check if browser supports Web Speech API
+  const hasBrowserSTT = typeof window !== "undefined" && 
+    !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+
+  // ── Fallback: MediaRecorder + backend STT (only used if browser API unavailable) ──
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
 
   // Auto-scroll transcripts to the bottom
   useEffect(() => {
@@ -32,123 +73,37 @@ export function VoiceSession() {
         currentAudioRef.current.pause();
         currentAudioRef.current = null;
       }
+      if (recognitionRef.current) {
+        recognitionRef.current.abort();
+        recognitionRef.current = null;
+      }
     };
   }, []);
 
-  const startRecording = async () => {
-    setErrorMsg(null);
-    audioChunksRef.current = [];
-
-    // Stop any playing audio
-    if (currentAudioRef.current) {
-      currentAudioRef.current.pause();
-      currentAudioRef.current = null;
-    }
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: {
-          channelCount: 1, // Mono audio is required for accurate STT
-          echoCancellation: true,
-          noiseSuppression: true,
-        } 
-      });
-
-      // Determine supported mime type
-      let options = { mimeType: "audio/webm;codecs=opus" };
-      if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-        options = { mimeType: "audio/webm" };
-      }
-      if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-        options = { mimeType: "audio/ogg;codecs=opus" };
-      }
-      if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-        options = { mimeType: "" }; // default fallback
-      }
-
-      const mediaRecorder = new MediaRecorder(stream, options);
-      mediaRecorderRef.current = mediaRecorder;
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
-      };
-
-      mediaRecorder.onstop = async () => {
-        // Stop all tracks to release the microphone device
-        stream.getTracks().forEach((track) => track.stop());
-
-        const audioBlob = new Blob(audioChunksRef.current, {
-          type: mediaRecorder.mimeType || "audio/webm",
-        });
-
-        // Guard: reject blobs that are too small to contain real speech
-        // (< 1 KB almost certainly means silence or a near-instant tap)
-        if (audioBlob.size < 1000) {
-          setErrorMsg("Recording too short. Hold the button and speak before releasing.");
-          setState("idle");
-          return;
-        }
-
-        await handleAudioCaptured(audioBlob);
-      };
-
-      mediaRecorder.start(); // collect audio as a single chunk for proper WebM headers
-      setState("listening");
-    } catch (err: unknown) {
-      console.error("Error accessing microphone:", err);
-      setErrorMsg("Microphone access denied. Please allow microphone permissions in your browser.");
-      setState("idle");
-    }
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-      mediaRecorderRef.current.stop();
-    }
-  };
-
-  const handleAudioCaptured = async (audioBlob: Blob) => {
+  // ── Process recognized text (shared by both STT methods) ──
+  const processUserText = useCallback(async (userText: string) => {
     setState("processing");
+    setInterimText("");
     try {
-      // 1. Call Speech-to-Text (STT) proxy route
-      const formData = new FormData();
-      formData.append("file", audioBlob, "recording.webm");
-
-      const sttResponse = await fetch(`/api/voice/stt?language=${language}`, {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!sttResponse.ok) {
-        throw new Error("Speech recognition failed. Try speaking closer to the microphone.");
-      }
-
-      const sttData = await sttResponse.json();
-      const userText = sttData.transcript?.trim();
-
-      if (!userText) {
-        throw new Error("No speech detected. Please try again.");
-      }
-
       // Add user message to transcript log
       setMessages((prev) => [...prev, { role: "user", content: userText }]);
 
-      // 2. Route transcribed query to existing RAG chat endpoint
+      // Route transcribed query to existing RAG chat endpoint
       const chatMessages = [
         ...messages.map((m) => ({ role: m.role, content: m.content })),
         { role: "user", content: userText },
       ];
 
-      const chatResponse = await fetch("http://localhost:8000/api/chat", {
+      const chatResponse = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: chatMessages }),
       });
 
       if (!chatResponse.ok) {
-        throw new Error("Failed to consult the legal database. Please check your connection.");
+        const errData = await chatResponse.json().catch(() => ({}));
+        const detail = errData?.error || errData?.detail || `Chat failed (HTTP ${chatResponse.status})`;
+        throw new Error(`Legal database error: ${detail}`);
       }
 
       const chatData = await chatResponse.json();
@@ -157,7 +112,7 @@ export function VoiceSession() {
       // Add assistant response to transcript log
       setMessages((prev) => [...prev, { role: "assistant", content: assistantText }]);
 
-      // 3. Request Text-to-Speech (TTS) conversion
+      // Request Text-to-Speech (TTS) conversion
       const ttsResponse = await fetch("/api/voice/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -165,7 +120,9 @@ export function VoiceSession() {
       });
 
       if (!ttsResponse.ok) {
-        throw new Error("Synthesis failed. Check transcript panel for details.");
+        const errData = await ttsResponse.json().catch(() => ({}));
+        const detail = errData?.error || errData?.detail || `TTS failed (HTTP ${ttsResponse.status})`;
+        throw new Error(`Voice synthesis failed: ${detail}`);
       }
 
       const ttsBlob = await ttsResponse.blob();
@@ -191,6 +148,210 @@ export function VoiceSession() {
       setErrorMsg(errMsg);
       setState("idle");
     }
+  }, [messages, language]);
+
+  // ── Primary: Browser Web Speech API ──
+  const startBrowserRecognition = useCallback(() => {
+    setErrorMsg(null);
+    setInterimText("");
+    finalTranscriptRef.current = "";
+
+    // Stop any playing audio
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current = null;
+    }
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setErrorMsg("Browser does not support speech recognition.");
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = language;
+    recognition.interimResults = true;
+    recognition.continuous = true;
+    recognition.maxAlternatives = 1;
+
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
+      let interim = "";
+      let final = "";
+      for (let i = 0; i < event.results.length; i++) {
+        const result = event.results[i];
+        if (result.isFinal) {
+          final += result[0].transcript + " ";
+        } else {
+          interim += result[0].transcript;
+        }
+      }
+      if (final) {
+        finalTranscriptRef.current = final.trim();
+      }
+      setInterimText(interim || finalTranscriptRef.current);
+    };
+
+    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+      console.error("[Web Speech API] Error:", event.error, event.message);
+      if (event.error === "no-speech") {
+        setErrorMsg("No speech detected — please speak more clearly and try again.");
+      } else if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+        setErrorMsg("Microphone access denied. Please allow microphone permissions in your browser.");
+      } else if (event.error === "network") {
+        setErrorMsg("Network error during speech recognition. Check your internet connection.");
+      } else {
+        setErrorMsg(`Speech recognition error: ${event.error}`);
+      }
+      setState("idle");
+      setInterimText("");
+    };
+
+    recognition.onend = () => {
+      const text = finalTranscriptRef.current.trim();
+      if (text) {
+        processUserText(text);
+      } else {
+        // Only show error if we're still in "listening" state (user didn't manually stop with no speech)
+        setState((prev) => {
+          if (prev === "listening") {
+            setErrorMsg("No speech detected — please speak more clearly and try again.");
+            return "idle";
+          }
+          return prev;
+        });
+        setInterimText("");
+      }
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setState("listening");
+  }, [language, processUserText]);
+
+  const stopBrowserRecognition = useCallback(() => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      // onend handler will fire and process the transcript
+    }
+  }, []);
+
+  // ── Fallback: MediaRecorder + Backend Google Cloud STT ──
+  const startFallbackRecording = async () => {
+    setErrorMsg(null);
+    audioChunksRef.current = [];
+
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current = null;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+        },
+      });
+
+      let options = { mimeType: "audio/webm;codecs=opus" };
+      if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+        options = { mimeType: "audio/webm" };
+      }
+      if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+        options = { mimeType: "audio/ogg;codecs=opus" };
+      }
+      if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+        options = { mimeType: "" };
+      }
+
+      const mediaRecorder = new MediaRecorder(stream, options);
+      mediaRecorderRef.current = mediaRecorder;
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        stream.getTracks().forEach((track) => track.stop());
+        const audioBlob = new Blob(audioChunksRef.current, {
+          type: mediaRecorder.mimeType || "audio/webm",
+        });
+
+        if (audioBlob.size < 1000) {
+          setErrorMsg("Recording too short. Hold the button and speak before releasing.");
+          setState("idle");
+          return;
+        }
+
+        await handleFallbackAudio(audioBlob);
+      };
+
+      mediaRecorder.start();
+      setState("listening");
+    } catch (err: unknown) {
+      console.error("Error accessing microphone:", err);
+      setErrorMsg("Microphone access denied. Please allow microphone permissions in your browser.");
+      setState("idle");
+    }
+  };
+
+  const stopFallbackRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+    }
+  };
+
+  const handleFallbackAudio = async (audioBlob: Blob) => {
+    setState("processing");
+    try {
+      const formData = new FormData();
+      formData.append("file", audioBlob, "recording.webm");
+
+      const sttResponse = await fetch(`/api/voice/stt?language=${language}`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!sttResponse.ok) {
+        const errData = await sttResponse.json().catch(() => ({}));
+        const detail = errData?.error || errData?.detail || `STT failed (HTTP ${sttResponse.status})`;
+        throw new Error(`Speech recognition failed: ${detail}`);
+      }
+
+      const sttData = await sttResponse.json();
+      const userText = sttData.transcript?.trim();
+
+      if (!userText) {
+        throw new Error("No speech detected — please speak more clearly and try again.");
+      }
+
+      await processUserText(userText);
+    } catch (err: unknown) {
+      console.error(err);
+      const errMsg = err instanceof Error ? err.message : "An unexpected error occurred during the voice request.";
+      setErrorMsg(errMsg);
+      setState("idle");
+    }
+  };
+
+  // ── Unified start/stop that picks the right method ──
+  const startRecording = () => {
+    if (hasBrowserSTT) {
+      startBrowserRecognition();
+    } else {
+      startFallbackRecording();
+    }
+  };
+
+  const stopRecording = () => {
+    if (hasBrowserSTT) {
+      stopBrowserRecognition();
+    } else {
+      stopFallbackRecording();
+    }
   };
 
   const stopPlayback = () => {
@@ -203,8 +364,13 @@ export function VoiceSession() {
 
   const clearSession = () => {
     stopPlayback();
+    if (recognitionRef.current) {
+      recognitionRef.current.abort();
+      recognitionRef.current = null;
+    }
     setMessages([]);
     setErrorMsg(null);
+    setInterimText("");
   };
 
   return (
@@ -251,6 +417,13 @@ export function VoiceSession() {
               {state === "speaking" && "Playing Indian Law analysis. Tap stop button to interrupt."}
             </p>
           </div>
+
+          {/* Live interim transcript while listening */}
+          {state === "listening" && interimText && (
+            <div className="mt-3 px-4 py-2 rounded-xl bg-cyan-500/10 border border-cyan-500/20 max-w-xs mx-auto">
+              <p className="text-xs text-cyan-300 italic text-center">&ldquo;{interimText}&rdquo;</p>
+            </div>
+          )}
         </div>
 
         {/* Lower Controls & Language Toggles */}
