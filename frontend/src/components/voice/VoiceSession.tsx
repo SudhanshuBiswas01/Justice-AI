@@ -39,6 +39,7 @@ declare global {
 interface Message {
   role: "user" | "assistant";
   content: string;
+  source_type?: "corpus" | "web_fallback" | "greeting";
 }
 
 export function VoiceSession() {
@@ -108,9 +109,13 @@ export function VoiceSession() {
 
       const chatData = await chatResponse.json();
       const assistantText = chatData.response;
+      const sourceType = chatData.source_type ?? "corpus";
 
       // Add assistant response to transcript log
-      setMessages((prev) => [...prev, { role: "assistant", content: assistantText }]);
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: assistantText, source_type: sourceType },
+      ]);
 
       // Request Text-to-Speech (TTS) conversion
       const ttsResponse = await fetch("/api/voice/tts", {
@@ -548,6 +553,26 @@ export function VoiceSession() {
                 <p className="leading-relaxed whitespace-pre-line text-xs sm:text-sm">
                   {msg.content}
                 </p>
+                {/* Source attribution pill for assistant messages */}
+                {msg.role === "assistant" && msg.source_type && msg.source_type !== "greeting" && (
+                  <div className="mt-2">
+                    {msg.source_type === "web_fallback" ? (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-2.5 h-2.5">
+                          <path fillRule="evenodd" d="M8 15A7 7 0 1 0 8 1a7 7 0 0 0 0 14Zm.75-6.75a.75.75 0 0 0-1.5 0v2a.75.75 0 0 0 1.5 0v-2ZM8 5.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Z" clipRule="evenodd" />
+                        </svg>
+                        General knowledge — verify independently
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-cyan-500/25 bg-cyan-500/10 px-2 py-0.5 text-[10px] font-medium text-cyan-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-2.5 h-2.5">
+                          <path fillRule="evenodd" d="M8 15A7 7 0 1 0 8 1a7 7 0 0 0 0 14Zm3.78-4.22a.75.75 0 0 0-1.06-1.06L7.5 12.94 5.28 10.72a.75.75 0 0 0-1.06 1.06l2.75 2.75a.75.75 0 0 0 1.06 0l3.75-3.75Z" clipRule="evenodd" />
+                        </svg>
+                        Indian law corpus
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
             ))
           )}
