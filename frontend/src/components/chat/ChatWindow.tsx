@@ -4,11 +4,21 @@ import { useState, useRef, useEffect } from "react";
 import { ChatMessage } from "./ChatMessage";
 import { FileUploadPreview } from "./FileUploadPreview";
 
+interface Citation {
+  ref: number;
+  title: string;
+  act_name: string;
+  section: string;
+  source: string;
+}
+
 interface Message {
   role: "user" | "assistant" | "system";
   content: string;
   ocrResult?: any;
   fileName?: string;
+  source_type?: "corpus" | "web_fallback" | "greeting";
+  citations?: Citation[];
 }
 
 export function ChatWindow() {
@@ -187,7 +197,7 @@ export function ChatWindow() {
       }));
       backendMessages.push({ role: "user", content: backendContent });
 
-      const response = await fetch("http://localhost:8000/api/chat", {
+      const response = await fetch("/api/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -196,14 +206,24 @@ export function ChatWindow() {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to get response from server");
+        const errData = await response.json().catch(() => ({}));
+        const detail = errData?.error || errData?.detail || `Server error (HTTP ${response.status})`;
+        throw new Error(detail);
       }
 
       const finalLatency = (Date.now() - startTimeRef.current) / 1000;
       setLastLatency(finalLatency);
 
       const data = await response.json();
-      setMessages((prev) => [...prev, { role: "assistant", content: data.response }]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: data.response,
+          source_type: data.source_type ?? "corpus",
+          citations: data.citations ?? [],
+        },
+      ]);
     } catch (error) {
       console.error("Chat error:", error);
       const finalLatency = (Date.now() - startTimeRef.current) / 1000;
@@ -259,15 +279,63 @@ export function ChatWindow() {
       <div className="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar">
         {messages.map((msg, index) => (
           <div key={index}>
-            <ChatMessage 
-              role={msg.role} 
-              content={msg.content} 
+            <ChatMessage
+              role={msg.role}
+              content={msg.content}
               ocrResult={msg.ocrResult}
               fileName={msg.fileName}
             />
-            {/* Show latency badge after the last assistant message */}
+
+            {/* Source badge + citations (assistant messages only) */}
+            {msg.role === "assistant" && msg.source_type && msg.source_type !== "greeting" && (
+              <div className="flex flex-col gap-2 mb-4 -mt-3 ml-1 max-w-[85%]">
+                {/* Source type pill */}
+                {msg.source_type === "web_fallback" ? (
+                  <div className="inline-flex items-center gap-1.5 self-start rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-0.5 text-[11px] font-medium text-amber-400">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3">
+                      <path fillRule="evenodd" d="M8 15A7 7 0 1 0 8 1a7 7 0 0 0 0 14Zm.75-6.75a.75.75 0 0 0-1.5 0v2a.75.75 0 0 0 1.5 0v-2ZM8 5.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Z" clipRule="evenodd" />
+                    </svg>
+                    ⚠️ No corpus match — answer from general LLM knowledge. Verify independently.
+                  </div>
+                ) : (
+                  <div className="inline-flex items-center gap-1.5 self-start rounded-full border border-cyan-500/25 bg-cyan-500/8 px-2.5 py-0.5 text-[11px] font-medium text-cyan-400">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3">
+                      <path fillRule="evenodd" d="M8 15A7 7 0 1 0 8 1a7 7 0 0 0 0 14Zm3.78-4.22a.75.75 0 0 0-1.06-1.06L7.5 12.94 5.28 10.72a.75.75 0 0 0-1.06 1.06l2.75 2.75a.75.75 0 0 0 1.06 0l3.75-3.75Z" clipRule="evenodd" />
+                    </svg>
+                    Sourced from Indian law corpus
+                  </div>
+                )}
+
+                {/* Citation list */}
+                {msg.citations && msg.citations.length > 0 && (
+                  <div className="flex flex-col gap-1">
+                    {msg.citations.map((c) => (
+                      <div
+                        key={c.ref}
+                        className="inline-flex flex-wrap items-center gap-1.5 rounded-lg border border-white/6 bg-white/3 px-3 py-1.5 text-[11px] text-zinc-400"
+                      >
+                        <span className="font-semibold text-zinc-300">[{c.ref}]</span>
+                        {c.act_name && (
+                          <span className="rounded bg-violet-500/15 px-1.5 py-0.5 text-[10px] font-medium text-violet-300">
+                            {c.act_name}
+                          </span>
+                        )}
+                        {c.section && (
+                          <span className="rounded bg-cyan-500/12 px-1.5 py-0.5 text-[10px] font-medium text-cyan-300">
+                            § {c.section}
+                          </span>
+                        )}
+                        <span className="truncate text-zinc-500">{c.title}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Latency badge after last assistant message */}
             {!isLoading && lastLatency !== null && index === messages.length - 1 && msg.role === "assistant" && (
-              <div className="flex justify-start mb-4 -mt-4 ml-1">
+              <div className="flex justify-start mb-4 -mt-1 ml-1">
                 <span className="inline-flex items-center gap-1.5 text-[11px] text-zinc-500 font-mono">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3 text-zinc-600">
                     <path fillRule="evenodd" d="M8 15A7 7 0 1 0 8 1a7 7 0 0 0 0 14Zm.75-10.25a.75.75 0 0 0-1.5 0v3.5c0 .199.079.39.22.53l2 2a.75.75 0 1 0 1.06-1.06l-1.78-1.78V4.75Z" clipRule="evenodd" />

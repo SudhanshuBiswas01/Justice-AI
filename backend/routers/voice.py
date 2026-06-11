@@ -32,58 +32,48 @@ async def speech_to_text(file: UploadFile = File(...), language: str = "en-IN"):
         content = await file.read()
         print(f"[Backend STT] Received file: {file.filename}, Content-Type: {file.content_type}, Size: {len(content)} bytes, Language: {language}")
         
-        # Determine standard encoding and sample rate
-        # Chrome/Firefox MediaRecorder output is typically WebM/Opus.
+        # Determine encoding based on file type
+        # Chrome/Firefox MediaRecorder outputs WebM/Opus by default
         encoding = speech.RecognitionConfig.AudioEncoding.WEBM_OPUS
-        sample_rate = 48000
         
         filename = file.filename.lower() if file.filename else ""
         if filename.endswith(".wav"):
             encoding = speech.RecognitionConfig.AudioEncoding.LINEAR16
-            sample_rate = 16000
         elif filename.endswith(".mp3"):
             encoding = speech.RecognitionConfig.AudioEncoding.MP3
-            sample_rate = 16000
+        elif filename.endswith(".ogg"):
+            encoding = speech.RecognitionConfig.AudioEncoding.OGG_OPUS
             
-        config_kwargs = {
-            "encoding": encoding,
-            "language_code": language,
-            "alternative_language_codes": ["hi-IN", "en-IN"] if language in ["en-IN", "hi-IN"] else [],
-            "enable_automatic_punctuation": True
-        }
-        
-        # NOTE: The streaming_recognize API CANNOT auto-detect Opus sample rate from
-        # WebM container headers (unlike the synchronous recognize API).
-        # We must always provide sample_rate_hertz explicitly for streaming.
-        # Chrome/Firefox MediaRecorder always encodes Opus at 48000 Hz.
-        config_kwargs["sample_rate_hertz"] = sample_rate
-            
-        config = speech.RecognitionConfig(**config_kwargs)
-        
-        # Use StreamingRecognize to bypass Chrome's missing WebM duration header bug
-        # which causes the synchronous recognize() to return empty results.
-        streaming_config = speech.StreamingRecognitionConfig(
-            config=config,
-            single_utterance=False
+        config = speech.RecognitionConfig(
+            encoding=encoding,
+            language_code=language,
+            # Accept both Hindi and English so Hinglish works too
+            alternative_language_codes=["hi-IN", "en-IN"] if language in ["en-IN", "hi-IN"] else [],
+            enable_automatic_punctuation=True,
+            # NOTE: Do NOT set sample_rate_hertz for WEBM_OPUS — the synchronous
+            # recognize API auto-detects the correct rate from the WebM container header.
+            # Setting it explicitly causes a mismatch and empty transcripts.
+            model="latest_short",  # Best model for short voice queries (<1 min)
         )
         
-        # We can send the entire content in a single chunk
-        requests = [speech.StreamingRecognizeRequest(audio_content=content)]
+        audio = speech.RecognitionAudio(content=content)
         
-        responses = speech_client.streaming_recognize(
-            config=streaming_config, 
-            requests=requests
-        )
+        # Use the synchronous recognize API (NOT streaming_recognize).
+        # streaming_recognize is for live microphone streams — sending a complete
+        # pre-recorded blob as a single chunk makes Google return empty transcripts.
+        # The synchronous API is designed exactly for this: full pre-recorded audio files.
+        response = speech_client.recognize(config=config, audio=audio)
         
         transcript = ""
-        for response in responses:
-            for result in response.results:
-                transcript += result.alternatives[0].transcript + " "
-                
-        return {"transcript": transcript.strip()}
+        for result in response.results:
+            transcript += result.alternatives[0].transcript + " "
+        
+        transcript = transcript.strip()
+        print(f"[Backend STT] Transcript: \"{transcript}\" ({len(response.results)} result(s))")
+        return {"transcript": transcript}
         
     except Exception as e:
-        print(f"Error in backend STT: {e}")
+        print(f"[Backend STT] Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/tts")
