@@ -218,7 +218,7 @@ export default function VoicePage() {
 
             {voiceState === "listening" && interimText && (
               <p className="mt-2 max-w-xs rounded-xl border border-cyan-500/20 bg-cyan-500/10 px-4 py-2 text-xs italic text-cyan-300">
-                "{interimText}"
+                &ldquo;{interimText}&rdquo;
               </p>
             )}
 
