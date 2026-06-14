@@ -8,6 +8,9 @@ import { motion, AnimatePresence } from "framer-motion"
 import { ArrowLeft, Mail, Lock, User, Sparkles, Scale, ShieldCheck } from "lucide-react"
 import { Logo } from "@/components/shared/logo"
 import { AmbientBackground } from "@/components/shared/ambient-background"
+
+// useSearchParams() requires a Suspense boundary in Next.js 14 App Router static builds.
+// We split into an inner component and wrap in Suspense below.
 import { VoiceOrb } from "@/components/voice/voice-orb"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -16,7 +19,7 @@ import { ease } from "@/lib/motion"
 
 type Mode = "signin" | "signup"
 
-export default function AuthPage() {
+function AuthInner() {
   const [mode, setMode] = React.useState<Mode>("signin")
   const [loading, setLoading] = React.useState(false)
   const [name, setName] = React.useState("")
@@ -238,6 +241,15 @@ export default function AuthPage() {
         </motion.div>
       </div>
     </div>
+  )
+}
+
+// Wrap in Suspense because useSearchParams() needs it for static generation
+export default function AuthPage() {
+  return (
+    <React.Suspense fallback={<div className="min-h-screen bg-background" />}>
+      <AuthInner />
+    </React.Suspense>
   )
 }
 
