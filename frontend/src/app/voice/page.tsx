@@ -110,7 +110,10 @@ export default function VoicePage() {
       currentAudioRef.current = audio
 
       setVoiceState("speaking")
-      audio.onended = () => setVoiceState("idle")
+      audio.onended = () => {
+        if (active) resumeListening()
+        else setVoiceState("idle")
+      }
       audio.onerror = () => { setVoiceState("idle"); setErrorMsg("Playback error.") }
       await audio.play()
     } catch (err: any) {
@@ -119,9 +122,8 @@ export default function VoicePage() {
     }
   }
 
-  function startSession() {
+  function resumeListening() {
     setErrorMsg(null)
-    setActive(true)
     finalTranscript.current = ""
 
     if (currentAudioRef.current) {
@@ -171,6 +173,11 @@ export default function VoicePage() {
     setVoiceState("listening")
   }
 
+  function startSession() {
+    setActive(true)
+    resumeListening()
+  }
+
   function stopListening() {
     recognitionRef.current?.stop()
   }
@@ -183,14 +190,18 @@ export default function VoicePage() {
     setVoiceState("idle")
   }
 
-  const copy = stateCopy[voiceState]
+  const copy = { ...stateCopy[voiceState] }
+  if (active && voiceState === "idle") {
+    copy.label = "Session paused"
+    copy.sub = "Tap the microphone to resume"
+  }
 
   return (
     <AppShell title="Nyay Voice AI" showSearch={false}>
-      <div className="relative flex h-full flex-col items-center justify-center overflow-hidden px-4">
+      <div className="relative flex h-full flex-col items-center px-4 pt-12 pb-6">
         {/* Ambient reactive glow */}
         <motion.div
-          className="pointer-events-none absolute size-[36rem] rounded-full bg-primary/20 blur-3xl"
+          className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 size-[36rem] rounded-full bg-primary/20 blur-3xl"
           animate={{
             scale: voiceState === "speaking" ? [1, 1.2, 1] : voiceState === "listening" ? [1, 1.1, 1] : 1,
             opacity: active ? 0.5 : 0.25,
@@ -198,7 +209,7 @@ export default function VoicePage() {
           transition={{ duration: 2, repeat: Infinity }}
         />
 
-        <div className={cn("relative z-10 flex flex-col items-center gap-8 transition-all duration-700 ease-out", active && "pb-[280px]")}>
+        <div className="relative z-10 flex w-full flex-1 flex-col items-center justify-center gap-8">
           <VoiceOrb state={voiceState} />
           <Waveform state={voiceState} className="w-72" />
 
@@ -258,12 +269,12 @@ export default function VoicePage() {
             ) : (
               <>
                 <button
-                  onClick={voiceState === "listening" ? stopListening : undefined}
-                  disabled={voiceState !== "listening"}
+                  onClick={voiceState === "idle" ? resumeListening : voiceState === "listening" ? stopListening : undefined}
+                  disabled={voiceState === "thinking" || voiceState === "speaking"}
                   className="grid size-14 place-items-center rounded-full border border-white/10 bg-white/[0.04] text-foreground transition-colors hover:bg-white/[0.08] disabled:opacity-40"
-                  title="Stop listening"
+                  title={voiceState === "idle" ? "Resume listening" : "Pause listening"}
                 >
-                  <Pause className="size-5" />
+                  {voiceState === "idle" ? <Mic className="size-5" /> : <Pause className="size-5" />}
                 </button>
                 <button
                   onClick={() => { currentAudioRef.current?.pause(); setVoiceState("idle") }}
@@ -297,10 +308,10 @@ export default function VoicePage() {
         <AnimatePresence>
           {active && (
             <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 30 }}
-              className="glass-strong absolute bottom-6 z-10 w-full max-w-lg rounded-2xl p-4"
+              initial={{ opacity: 0, y: 30, height: 0 }}
+              animate={{ opacity: 1, y: 0, height: "auto" }}
+              exit={{ opacity: 0, y: 30, height: 0 }}
+              className="glass-strong z-10 mt-6 w-full max-w-lg shrink-0 rounded-2xl p-4"
             >
               <p className="mb-2 text-[11px] uppercase tracking-wide text-muted-foreground">
                 Live transcript
