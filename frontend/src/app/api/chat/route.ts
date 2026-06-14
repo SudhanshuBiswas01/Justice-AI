@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
+const BACKEND = "http://127.0.0.1:8000";
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -11,15 +13,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(
-      `[Next.js Chat Proxy] Forwarding chat request (${body.messages.length} messages) to FastAPI...`
-    );
-
-    const backendResponse = await fetch("http://127.0.0.1:8000/api/chat", {
+    const backendResponse = await fetch(`${BACKEND}/api/chat`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
 
@@ -32,25 +28,15 @@ export async function POST(request: NextRequest) {
       } catch {
         errorMessage = errorText || errorMessage;
       }
-      console.error(
-        `[Next.js Chat Proxy] FastAPI error: ${backendResponse.status} - ${errorMessage}`
-      );
-      return NextResponse.json(
-        { error: errorMessage },
-        { status: backendResponse.status }
-      );
+      return NextResponse.json({ error: errorMessage }, { status: backendResponse.status });
     }
 
     const data = await backendResponse.json();
+    // data = { response, source_type, citations }
     return NextResponse.json(data);
   } catch (error: any) {
-    console.error("[Next.js Chat Proxy] Error in chat proxy:", error);
     return NextResponse.json(
-      {
-        error:
-          error?.message ||
-          "Internal Server Error in Next.js chat proxy route.",
-      },
+      { error: error?.message || "Internal Server Error in chat proxy." },
       { status: 500 }
     );
   }

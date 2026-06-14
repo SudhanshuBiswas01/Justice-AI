@@ -4,7 +4,6 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import pool from "@/lib/db";
 import bcrypt from "bcryptjs";
 
-// ── ensure our users table exists ─────────────────────────────────────────────
 async function ensureUsersTable() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS justice_users (
@@ -20,17 +19,14 @@ async function ensureUsersTable() {
 }
 
 export const authOptions: NextAuthOptions = {
-  // NO adapter — pure JWT sessions, no DB session tables needed
   session: { strategy: "jwt" },
 
   providers: [
-    // ── Google ──────────────────────────────────────────────────────────────
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
     }),
 
-    // ── Email + Password ─────────────────────────────────────────────────────
     CredentialsProvider({
       name: "credentials",
       credentials: {
@@ -43,18 +39,15 @@ export const authOptions: NextAuthOptions = {
         if (!credentials?.email || !credentials?.password) return null;
 
         await ensureUsersTable();
-
         const email = credentials.email.toLowerCase().trim();
         const { rows } = await pool.query(
           "SELECT * FROM justice_users WHERE email = $1",
           [email]
         );
 
-        // ── SIGNUP ─────────────────────────────────────────────────────────
+        // SIGNUP
         if (credentials.mode === "signup") {
-          if (rows.length > 0) {
-            throw new Error("Email already registered. Please sign in.");
-          }
+          if (rows.length > 0) throw new Error("Email already registered. Please sign in.");
           const hash = await bcrypt.hash(credentials.password, 12);
           const { rows: newRows } = await pool.query(
             `INSERT INTO justice_users (name, email, password_hash, auth_provider)
@@ -66,19 +59,13 @@ export const authOptions: NextAuthOptions = {
           return { id: u.id, name: u.name, email: u.email, image: u.image };
         }
 
-        // ── LOGIN ──────────────────────────────────────────────────────────
-        if (rows.length === 0) {
-          throw new Error("No account found. Please sign up first.");
-        }
+        // LOGIN
+        if (rows.length === 0) throw new Error("No account found. Please sign up first.");
         const user = rows[0];
-        if (!user.password_hash) {
-          throw new Error(
-            "This email is linked to Google. Use 'Continue with Google'."
-          );
-        }
+        if (!user.password_hash)
+          throw new Error("This email is linked to Google. Use 'Continue with Google'.");
         const valid = await bcrypt.compare(credentials.password, user.password_hash);
         if (!valid) throw new Error("Incorrect password.");
-
         return { id: user.id, name: user.name, email: user.email, image: user.image };
       },
     }),
@@ -90,7 +77,6 @@ export const authOptions: NextAuthOptions = {
   },
 
   callbacks: {
-    // Persist user id & provider into the JWT
     async jwt({ token, user, account }) {
       if (user) {
         token.id       = user.id;
@@ -98,26 +84,20 @@ export const authOptions: NextAuthOptions = {
       }
       return token;
     },
-
-    // Expose id & provider on the client-side session object
     async session({ session, token }) {
       if (session.user) {
-        session.user.id       = token.id as string;
-        session.user.provider = token.provider as string;
+        (session.user as any).id       = token.id as string;
+        (session.user as any).provider = token.provider as string;
       }
       return session;
     },
-
-    // Always land on /app after OAuth (credentials use redirect:false so this
-    // only fires for Google)
     async redirect({ url, baseUrl }) {
       if (url.startsWith(baseUrl)) return url;
       if (url.startsWith("/"))     return `${baseUrl}${url}`;
-      return `${baseUrl}/app`;
+      return `${baseUrl}/dashboard`;
     },
   },
 
-  // Save Google users to our justice_users table on first sign-in
   events: {
     async signIn({ user, account }) {
       if (account?.provider === "google" && user.email) {
