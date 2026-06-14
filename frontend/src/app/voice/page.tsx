@@ -96,7 +96,7 @@ export default function VoicePage() {
       setTranscript((prev) => [...prev, { role: "nyay", text: assistantText, source_type: sourceType }])
 
       // TTS
-      const ttsRes = await fetch("/api/voice", {
+      const ttsRes = await fetch("/api/voice?action=tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: assistantText, language }),
@@ -198,7 +198,7 @@ export default function VoicePage() {
           transition={{ duration: 2, repeat: Infinity }}
         />
 
-        <div className="relative z-10 flex flex-col items-center gap-8">
+        <div className={cn("relative z-10 flex flex-col items-center gap-8 transition-all duration-700 ease-out", active && "pb-[280px]")}>
           <VoiceOrb state={voiceState} />
           <Waveform state={voiceState} className="w-72" />
 

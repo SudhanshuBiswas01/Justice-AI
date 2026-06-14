@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 
 const BACKEND = "http://127.0.0.1:8000";
 
-// POST /api/voice/stt — speech-to-text proxy
+// POST /api/voice — speech-to-text and text-to-speech proxy
 export async function POST(request: NextRequest) {
   try {
-    const { pathname, searchParams } = new URL(request.url);
-    const action = pathname.endsWith("/tts") ? "tts" : "stt";
+    const { searchParams } = new URL(request.url);
+    const action = searchParams.get("action") === "tts" ? "tts" : "stt";
 
     if (action === "stt") {
       const formData = await request.formData();
