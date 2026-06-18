@@ -10,6 +10,7 @@ import {
   Clock,
   FileText,
   ArrowRight,
+  BrainCircuit,
 } from "lucide-react"
 import { AppShell } from "@/components/shared/app-shell"
 import { FloatingCard } from "@/components/shared/floating-card"
@@ -25,6 +26,13 @@ const quickActions = [
     icon: MessageSquareText,
     href: "/chat",
     accent: "from-indigo-500 to-violet-500",
+  },
+  {
+    title: "Deep Research",
+    desc: "4-agent thorough legal analysis",
+    icon: BrainCircuit,
+    href: "/deep-research",
+    accent: "from-violet-500 to-purple-600",
   },
   {
     title: "Nyay Voice",
@@ -72,7 +80,7 @@ export default function DashboardPage() {
           variants={stagger(0.08)}
           initial="hidden"
           animate="show"
-          className="grid gap-4 sm:grid-cols-3"
+          className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
         >
           {quickActions.map((a) => {
             const Icon = a.icon

@@ -7,6 +7,7 @@ import {
   Scale,
   FileSearch,
   Gavel,
+  BrainCircuit,
   type LucideIcon,
 } from "lucide-react"
 
@@ -78,6 +79,7 @@ export type NavItem = {
 export const dashboardNav: NavItem[] = [
   { label: "Overview", href: "/dashboard", icon: Gavel },
   { label: "Chat", href: "/chat", icon: MessageSquareText },
+  { label: "Deep Research", href: "/deep-research", icon: BrainCircuit },
   { label: "Nyay Voice", href: "/voice", icon: Mic },
   { label: "Documents", href: "/ocr", icon: FileSearch },
 ]
