@@ -62,6 +62,8 @@ To act as the **first layer of defense** for the everyday consumer. By combining
 * ⚡ **Streaming AI Responses:** Instant, ultra-low latency response streaming directly to the UI.
 * 🎙️ **Real-time Bilingual Voice AI**: Full Speech-to-Text and Text-to-Speech loops supporting natural Indian English (`en-IN-Neural2-B`) and Hindi/Hinglish (`hi-IN-Neural2-C`).
 * 📁 **OCR-Driven Document Ingestion**: Upload traffic challans or commercial invoices for automated text extraction (via Gemini 2.0 Vision) and LLM-backed metadata parsing (fine amount, vehicle number, merchant details).
+* 🏷️ **Source Attribution & Citations:** Real-time visual identification of source context (Corpus Sourced vs Web Fallback vs Greeting) with interactive, formatted citation cards mapping directly to specific Indian legal sections and documents.
+* 🧠 **Selective Gemini Thinking Budget:** Dynamically allocated token reasoning budget (2,000 tokens for in-depth legal analysis vs 0 tokens for simple greeting/routing queries) to keep response times low while ensuring high-quality reasoning.
 * 💼 **SaaS-Style Dashboard**: Modern, dark-mode, minimal SaaS interface built for accessibility and trust.
 * 📝 **AI-Generated Complaint Drafts:** (Upcoming) Automated drafting of legal notices tailored for the National Consumer Helpline (NCH) or eDaakhil.
 
@@ -110,7 +112,7 @@ graph TD
     end
 
     %% Connections
-    UI -->|HTTP/REST| API
+    UI -->|HTTP/REST Request| API
     UI -->|Auth Flow| AuthClient
     AuthClient <-->|Token Exchange| OAuth
     AuthClient -->|Persist Users| PG
@@ -133,6 +135,10 @@ graph TD
     RAG <-->|Stream Response| Vertex
     RAG <-->|Generate Embeddings| Embed
     RAG -.->|Fallback| Groq
+    
+    %% Response Return Flow
+    RAG -->|Structured Response + Citations| API
+    API -->|JSON with Source & Citations| UI
     
     Scraper -->|Extract & Clean| SQLite
     Scraper <-->|Metadata Extraction| Groq
@@ -170,6 +176,7 @@ Our AI stack is designed with built-in redundancies, ensuring maximum uptime and
   * Fallback: OpenAI `text-embedding-3-small` (1536 dimensions).
   * Offline Fallback: Custom deterministic Token-Hashing Bag-of-Words (384 dimensions) with query expansion.
 * **Metadata Extraction (Scraper & OCR Pipeline):** LLMs (specifically `llama-3.3-70b-versatile` via Groq, or Gemini models) are used to heuristically structure scraped legal texts and OCR outputs into standardized schema fields (Act, Year, Sections, Fine Amount, Offence Type, Merchant).
+* **Dynamic Gemini Thinking Budget:** Dynamically configures the model's native reasoning capacity (`thinkingConfig`) with a selective budget: `2000` tokens of reasoning for legal guidance generation to allow high-depth legal analysis, and `0` tokens to completely disable reasoning for lightweight classification, greetings, and utility requests to optimize latency.
 
 ---
 
@@ -182,6 +189,7 @@ Justice AI relies on a heavily optimized Retrieval-Augmented Generation (RAG) pi
 * **Latency Challenges:** The LLM evaluation step in CRAG added 3-5 seconds of latency per turn. For a consumer SaaS application, this broke the UX.
 * **The Decision:** We rolled back to a score-threshold Simple RAG pipeline, bringing TTFT (Time To First Token) down to < 1 second. 
 * **Confidence-Aware Retrieval:** If cosine similarity scores fall below `0.65`, the system gracefully restricts hallucination by informing the LLM of "Limited Context".
+* **Real-time Source Routing & Citations:** If a query retrieves relevant chunks scoring `>= 0.65`, the pipeline designates the source as `corpus` and returns JSON citations containing the `act_name`, `section`, `title`, and `source` URL. Otherwise, it routes to `web_fallback` with safety instructions, or `greeting` if the query is simple/generic.
 * **Future Direction:** We are moving toward **Agentic RAG / Self-RAG**, offloading verification to asynchronous background tasks rather than blocking the main chat thread.
 
 ---
