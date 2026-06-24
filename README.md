@@ -505,5 +505,5 @@ npm run dev
 ---
 
 <div align="center">
-  <i>Built to bridge the justice gap in India. ⚖️ 🇮🇳</i>
+  <i>Built to bridge the justice gap in India. ⚖️ 🇮🇳 ✨</i>
 </div>
