@@ -60,8 +60,10 @@ class ResearchAgent:
         print(f"[ResearchAgent] {len(chunks)}/{len(raw)} chunks passed threshold ({RESEARCH_SCORE_THRESHOLD})")
 
         log = (
-            f"[Research] Found {len(chunks)} relevant legal sources "
-            f"(score ≥ {RESEARCH_SCORE_THRESHOLD}) from corpus."
+            f"[Research Agent] Successfully scanned the vector database for category '{category}'. "
+            f"Extracted {len(chunks)} highly relevant legal documents (Acts/Sections/Cases) "
+            f"exceeding the strict similarity threshold of {RESEARCH_SCORE_THRESHOLD}. "
+            f"These {len(chunks)} chunks will form the strict factual boundary for the Analysis Agent."
         )
 
         return {

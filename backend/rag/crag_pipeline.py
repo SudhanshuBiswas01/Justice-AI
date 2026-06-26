@@ -159,12 +159,20 @@ class CRAGPipeline:
     def __init__(self):
         self.store = VectorStore()
 
-    def _is_greeting(self, text: str) -> bool:
+    def _is_greeting_or_generic(self, text: str) -> bool:
         clean = re.sub(r'[^\w\s]', '', text.lower().strip())
         words = clean.split()
-        return clean in GREETING_WORDS or (
-            len(words) <= 4 and any(w in clean for w in ["hi", "hello", "hey", "name is", "i am"])
-        )
+        
+        if clean in {"hi", "hello", "hey", "hola", "greetings", "good morning", "good afternoon", "good evening", "how are you", "how is your day", "whats up", "who are you", "what is your name", "thanks", "thank you", "ok", "okay"}:
+            return True
+            
+        if len(words) <= 6 and any(w in clean for w in ["hi", "hello", "hey", "name is", "i am", "how are", "who are", "your day"]):
+            return True
+            
+        if any(w in clean for w in ["weather", "crimes in the city", "tell me a joke", "sing a song", "poem"]):
+            return True
+            
+        return False
 
     def _build_context_injection(
         self, chunks: List[Dict[str, Any]], is_greeting: bool, query: str
@@ -177,11 +185,10 @@ class CRAGPipeline:
         """
         if is_greeting:
             return (
-                "\n\n=== CONVERSATIONAL GREETING MODE ===\n"
-                "The user is simply greeting you or introducing themselves. "
+                "\n\n=== CONVERSATIONAL / GENERIC MODE ===\n"
+                "The user is making small talk, asking a generic question, or asking about something outside our domain.\n"
                 "Do not output legal sections or the three-part layout structure.\n"
-                "Politely welcome them, introduce yourself as Justice AI, and ask them to describe "
-                "their consumer, traffic challan, or overcharging legal problem.",
+                "Give a polite, concise conversational answer, and if appropriate, remind them you are Justice AI for legal issues.",
                 "greeting",
                 [],
             )
@@ -247,7 +254,7 @@ class CRAGPipeline:
             user_msgs = [m for m in messages if m["role"] == "user"]
             latest_query = user_msgs[-1]["content"] if user_msgs else messages[-1]["content"]
 
-        is_greeting = self._is_greeting(latest_query)
+        is_greeting = self._is_greeting_or_generic(latest_query)
 
         # 1. Vector search
         raw_chunks = []
@@ -295,7 +302,7 @@ class CRAGPipeline:
             user_msgs = [m for m in messages if m["role"] == "user"]
             latest_query = user_msgs[-1]["content"] if user_msgs else messages[-1]["content"]
 
-        is_greeting = self._is_greeting(latest_query)
+        is_greeting = self._is_greeting_or_generic(latest_query)
 
         raw_chunks = []
         if latest_query and not is_greeting:

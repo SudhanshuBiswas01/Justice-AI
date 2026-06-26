@@ -82,7 +82,8 @@ class OrchestratorAgent:
         query = user_msgs[-1]["content"]
         detected_category = category or _detect_category(query)
         agent_log: List[str] = [
-            f"[Orchestrator] Starting Deep Research for query: '{query[:80]}…' (category={detected_category})"
+            f"[Orchestrator Agent] Initializing Deep Research Pipeline. Received query: '{query[:80]}…'. "
+            f"Auto-categorized issue as '{detected_category}'. Routing to specialized sub-agents."
         ]
         print(f"[OrchestratorAgent] {agent_log[0]}")
 
@@ -95,7 +96,7 @@ class OrchestratorAgent:
 
         for pass_num in range(1, MAX_PASSES + 1):
             passes = pass_num
-            agent_log.append(f"[Orchestrator] Pass {pass_num}/{MAX_PASSES} starting…")
+            agent_log.append(f"[Orchestrator Agent] Initiating Workflow Pass {pass_num} of {MAX_PASSES}...")
 
             # ── Step 1: Research ────────────────────────────────────────────
             research_result = self.research.run(query, category=detected_category)
@@ -116,20 +117,20 @@ class OrchestratorAgent:
 
             if verify_result["passed"]:
                 agent_log.append(
-                    f"[Orchestrator] ✅ Passed verification on pass {pass_num} "
-                    f"(confidence={confidence:.2f}). Delivering report."
+                    f"[Orchestrator Agent] ✅ Final Verification Passed (Confidence: {confidence*100:.1f}%). "
+                    f"Report quality is high. Finalizing output for user delivery."
                 )
                 break
             else:
                 if pass_num < MAX_PASSES:
                     agent_log.append(
-                        f"[Orchestrator] ⚠️ Verification failed (confidence={confidence:.2f}). "
-                        f"Retrying with extended context…"
+                        f"[Orchestrator Agent] ⚠️ Draft rejected by Verifier (Confidence: {confidence*100:.1f}%). "
+                        f"Triggering automatic retry and expanding search parameters..."
                     )
                 else:
                     agent_log.append(
-                        f"[Orchestrator] ⚠️ Max passes reached. Delivering best-effort report "
-                        f"(confidence={confidence:.2f}). Disclaimer applied."
+                        f"[Orchestrator Agent] ⚠️ Maximum retries ({MAX_PASSES}) reached. "
+                        f"Delivering best-effort report (Confidence: {confidence*100:.1f}%). Appending human-review disclaimer."
                     )
 
         # Attach low-confidence disclaimer to the report if needed
@@ -141,7 +142,7 @@ class OrchestratorAgent:
             )
             report += disclaimer
 
-        agent_log.append(f"[Orchestrator] Complete. passes={passes}, confidence={confidence:.2f}, source={source_type}")
+        agent_log.append(f"[Orchestrator Agent] Pipeline Execution Complete. Total Passes: {passes}, Final Confidence: {confidence*100:.1f}%, Source: {source_type}.")
 
         return {
             "report": report,

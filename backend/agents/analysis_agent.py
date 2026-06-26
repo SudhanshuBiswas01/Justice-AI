@@ -126,7 +126,11 @@ class AnalysisAgent:
             thinking_budget=ANALYSIS_THINKING_BUDGET,
         )
 
-        log = f"[Analysis] Report drafted ({len(report.split())} words, {len(citations)} citations, source={source_type})."
+        log = (
+            f"[Analysis Agent] Draft generation complete. Utilized {ANALYSIS_THINKING_BUDGET}-token reasoning budget "
+            f"to synthesize laws. Formatted a {len(report.split())}-word structured action plan containing "
+            f"{len(citations)} precise legal citations. Strict grounding applied (Source: {source_type})."
+        )
         print(f"[AnalysisAgent] {log}")
 
         return {

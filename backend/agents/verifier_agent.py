@@ -129,9 +129,10 @@ class VerifierAgent:
         status = "PASS ✅" if passed else "FAIL ❌ — queuing retry"
 
         log = (
-            f"[Verifier] Confidence={confidence:.2f} ({status}). "
-            f"Scores: retrieval={retrieval:.2f}, citation={citation:.2f}, reasoning={reasoning:.2f}. "
-            f"Feedback: {feedback}"
+            f"[Verifier Agent] Quality Assurance Audit finished. Assessed draft against raw laws. "
+            f"Metrics ➔ Retrieval: {retrieval*100:.0f}%, Citation Match: {citation*100:.0f}%, Logic: {reasoning*100:.0f}%. "
+            f"Overall Confidence Rating: {confidence*100:.1f}% ({status}). "
+            f"Reviewer Note: {feedback}"
         )
         print(f"[VerifierAgent] {log}")
 

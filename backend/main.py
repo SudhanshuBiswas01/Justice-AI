@@ -1,3 +1,18 @@
+import sys, io
+# Force safe printing globally to prevent ₹ / emoji encoding crashes on Windows
+import builtins
+
+_original_print = builtins.print
+
+def safe_print(*args, **kwargs):
+    try:
+        _original_print(*args, **kwargs)
+    except UnicodeEncodeError:
+        safe_args = [str(a).encode('ascii', 'replace').decode('ascii') for a in args]
+        _original_print(*safe_args, **kwargs)
+
+builtins.print = safe_print
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routers import chat, scraper, ocr, voice, deep_research
